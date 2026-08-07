@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تأكيد الحضور</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f9f8f3; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: center; max-width: 350px; width: 100%; }
+        h1 { color: #2c3e50; font-size: 24px; margin-bottom: 5px; }
+        p.subtitle { color: #7f8c8d; font-size: 14px; margin-bottom: 30px; }
+        input { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; font-size: 16px; }
+        button { width: 100%; padding: 15px; background-color: #1b4332; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #081c15; }
+        .error { color: #e74c3c; margin-top: 10px; font-size: 14px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <span style="background-color: #f1c40f; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: bold;">إدخال رقم الجوال الخاص بالمدعو</span>
+        <h1>تأكيد الحضور</h1>
+        <p class="subtitle">زواج حمد ونورة</p>
+        
+        <form id="loginForm">
+            <input type="tel" id="phone" placeholder="رقم الجوال" required>
+            <button type="submit">متابعة</button>
+            <div id="errorMsg" class="error">عفواً، الرقم غير مسجل لدينا.</div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const phone = document.getElementById('phone').value;
+            
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: phone })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.token) {
+                    // توجيه المستخدم لصفحة الدعوة الخاصة به
+                    window.location.href = "/invite/" + data.token;
+                } else {
+                    document.getElementById('errorMsg').style.display = 'block';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

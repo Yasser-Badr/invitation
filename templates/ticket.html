@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بطاقة الدخول</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f9f8f3; padding: 20px; display: flex; justify-content: center; }
+        .ticket { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; width: 100%; position: relative; }
+        .header { display: flex; justify-content: space-between; border-bottom: 2px dashed #ddd; padding-bottom: 15px; margin-bottom: 15px; }
+        .info { margin-bottom: 20px; line-height: 1.8; }
+        .qr-section { text-align: center; }
+        .qr-section img { max-width: 200px; }
+        .print-btn { display: block; width: 100%; padding: 15px; background-color: #1b4332; color: white; text-align: center; border: none; border-radius: 10px; font-size: 16px; margin-top: 20px; cursor: pointer; }
+        @media print { .print-btn { display: none; } body { background-color: white; } .ticket { box-shadow: none; border: 1px solid #ccc; } }
+    </style>
+</head>
+<body>
+    <div class="ticket">
+        <div style="text-align: center; margin-bottom: 10px; color: #7f8c8d;">بطاقة دخول</div>
+        <div class="header">
+            <div>
+                <strong>المناسبة</strong><br>
+                <span style="font-size: 20px; font-weight: bold;">زواج حمد ونورة</span>
+            </div>
+            <div style="text-align: left;">
+                <span style="color: #7f8c8d;">رقم البطاقة</span><br>
+                <strong>#{{ .ID }}</strong>
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>الاسم:</strong> {{ .Name }}<br>
+            <strong>الجوال:</strong> {{ .Phone }}<br>
+            <strong>عدد المرافقين:</strong> {{ .Companions }}
+        </div>
+
+        <div class="qr-section">
+            <div style="background-color: #f1c40f; display: inline-block; padding: 5px 15px; border-radius: 10px; margin-bottom: 10px; font-size: 12px; font-weight: bold;">
+                يمكن تحميل بطاقة الدخول وحفظها على الجوال
+            </div>
+            <img src="{{ .QRImageURL }}" alt="QR Code">
+            <p style="color: #7f8c8d; font-size: 12px;">أظهري هذا الكود عند الدخول</p>
+        </div>
+
+        <button class="print-btn" onclick="window.print()">تحميل البطاقة 📲</button>
+    </div>
+</body>
+</html>

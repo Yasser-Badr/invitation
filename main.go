@@ -7,19 +7,18 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	//"github.com/glebarez/sqlite"
+	"gorm.io/driver/sqlite" // تم التغيير هنا لاستخدام SQLite
 	"github.com/google/uuid"
 	"github.com/skip2/go-qrcode"
-	"gorm.io/driver/sqlite" // تم التغيير هنا لاستخدام SQLite
 	"gorm.io/gorm"
 )
 
-// ==========================================
-// 1. Database Model
-// ==========================================
 type Guest struct {
 	gorm.Model
 	Name       string
-	Phone      string
+	Phone      string `gorm:"uniqueIndex"`
+	Companions int    `gorm:"default:0"`
 	Token      string `gorm:"uniqueIndex"`
 	QRImageURL string
 	Status     string `gorm:"default:'pending'"`
@@ -27,11 +26,7 @@ type Guest struct {
 
 var DB *gorm.DB
 
-// ==========================================
-// 2. Database Connection (SQLite)
-// ==========================================
 func ConnectDB() {
-	// استخدام SQLite وإنشاء ملف باسم wedding_test.db
 	database, err := gorm.Open(sqlite.Open("wedding_test.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatal("❌ فشل الاتصال بقاعدة البيانات:", err)
@@ -41,17 +36,13 @@ func ConnectDB() {
 	if err != nil {
 		log.Fatal("❌ فشل عمل Migration:", err)
 	}
-
-	log.Println("✅ تم إنشاء/الاتصال بملف SQLite وعمل Migration بنجاح!")
 	DB = database
 }
 
-// ==========================================
-// 3. Controllers 
-// ==========================================
 type CreateGuestInput struct {
-	Name  string `json:"name" binding:"required"`
-	Phone string `json:"phone" binding:"required"`
+	Name       string `json:"name" binding:"required"`
+	Phone      string `json:"phone" binding:"required"`
+	Companions int    `json:"companions"`
 }
 
 func CreateGuest(c *gin.Context) {
@@ -63,40 +54,45 @@ func CreateGuest(c *gin.Context) {
 	}
 
 	guestToken := uuid.New().String()
-	inviteURL := fmt.Sprintf("http://localhost:8080/invite/%s", guestToken)
-
-	qrFileName := fmt.Sprintf("%s.png", guestToken)
-	qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
-	// --- هذا هو الكود الجديد لحل المشكلة ---
-	// سيقوم بإنشاء مجلد public وبداخله qrcodes إذا لم يكونوا موجودين
-	os.MkdirAll("./public/qrcodes", os.ModePerm)
-	// ----------------------------------------
-
-	err := qrcode.WriteFile(inviteURL, qrcode.Medium, 256, qrFilePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل في توليد الباركود"})
-		return
-	}
 
 	newGuest := Guest{
 		Name:       input.Name,
 		Phone:      input.Phone,
+		Companions: input.Companions,
 		Token:      guestToken,
-		QRImageURL: fmt.Sprintf("/public/qrcodes/%s", qrFileName),
+		QRImageURL: "", // تم تفريغ الباركود هنا، لن يتم إنشاؤه الآن
 		Status:     "pending",
 	}
 
-	DB.Create(&newGuest)
+	if err := DB.Create(&newGuest).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "رقم الهاتف مسجل بالفعل!"})
+		return
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "تم إضافة المدعو وإنشاء الباركود بنجاح",
+		"message": "تم الإضافة بنجاح",
 		"data":    newGuest,
 	})
 }
 
-type RSVPInput struct {
-	Token  string `json:"token" binding:"required"`
-	Status string `json:"status" binding:"required"`
+type LoginInput struct {
+	Phone string `json:"phone" binding:"required"`
+}
+
+func LoginByPhone(c *gin.Context) {
+	var input LoginInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "رقم الهاتف مطلوب"})
+		return
+	}
+
+	var guest Guest
+	if err := DB.Where("phone = ?", input.Phone).First(&guest).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "الرقم غير مسجل لدينا"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": guest.Token})
 }
 
 func RenderInvitePage(c *gin.Context) {
@@ -104,14 +100,20 @@ func RenderInvitePage(c *gin.Context) {
 	var guest Guest
 
 	if err := DB.Where("token = ?", token).First(&guest).Error; err != nil {
-		c.String(http.StatusNotFound, "الدعوة غير صالحة أو غير موجودة")
+		c.String(http.StatusNotFound, "الدعوة غير صالحة")
 		return
 	}
 
 	c.HTML(http.StatusOK, "invite.html", gin.H{
-		"Name":  guest.Name,
-		"Token": guest.Token,
+		"Name":       guest.Name,
+		"Companions": guest.Companions,
+		"Token":      guest.Token,
 	})
+}
+
+type RSVPInput struct {
+	Token  string `json:"token" binding:"required"`
+	Status string `json:"status" binding:"required"`
 }
 
 func UpdateRSVP(c *gin.Context) {
@@ -122,19 +124,76 @@ func UpdateRSVP(c *gin.Context) {
 		return
 	}
 
-	result := DB.Model(&Guest{}).Where("token = ?", input.Token).Update("status", input.Status)
-	
-	if result.Error != nil || result.RowsAffected == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل في تحديث الحالة"})
+	var guest Guest
+	if err := DB.Where("token = ?", input.Token).First(&guest).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "الضيف غير موجود"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "تم تحديث حالة الحضور بنجاح"})
+	// === المنطق الجديد: إنشاء الباركود فقط عند التأكيد ===
+	if input.Status == "confirmed" && guest.QRImageURL == "" {
+		// الرابط الذي سيفتح عند مسح الباركود بالكاميرا عند باب القاعة
+		verifyURL := fmt.Sprintf("http://localhost:8080/verify/%s", guest.Token)
+		
+		qrFileName := fmt.Sprintf("%s.png", guest.Token)
+		qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
+		
+		os.MkdirAll("./public/qrcodes", os.ModePerm)
+		err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل في توليد الباركود"})
+			return
+		}
+		
+		guest.QRImageURL = fmt.Sprintf("/public/qrcodes/%s", qrFileName)
+	}
+
+	guest.Status = input.Status
+	DB.Save(&guest)
+
+	c.JSON(http.StatusOK, gin.H{"message": "تم تحديث حالة الحضور"})
 }
 
-// ==========================================
-// 4. Main Function
-// ==========================================
+func RenderTicketPage(c *gin.Context) {
+	token := c.Param("token")
+	var guest Guest
+
+	if err := DB.Where("token = ?", token).First(&guest).Error; err != nil {
+		c.String(http.StatusNotFound, "البطاقة غير موجودة")
+		return
+	}
+
+	if guest.Status != "confirmed" {
+		c.String(http.StatusForbidden, "يجب تأكيد الحضور أولاً لإصدار بطاقة الدخول")
+		return
+	}
+
+	c.HTML(http.StatusOK, "ticket.html", gin.H{
+		"ID":         guest.ID,
+		"Name":       guest.Name,
+		"Phone":      guest.Phone,
+		"Companions": guest.Companions,
+		"QRImageURL": guest.QRImageURL,
+	})
+}
+
+// === صفحة جديدة خاصة بالمنظمين عند باب القاعة للتحقق من الباركود ===
+func RenderVerifyPage(c *gin.Context) {
+	token := c.Param("token")
+	var guest Guest
+
+	if err := DB.Where("token = ?", token).First(&guest).Error; err != nil {
+		c.HTML(http.StatusOK, "verify.html", gin.H{"Error": "هذا الباركود غير مسجل في النظام!"})
+		return
+	}
+
+	c.HTML(http.StatusOK, "verify.html", gin.H{
+		"Name":       guest.Name,
+		"Companions": guest.Companions,
+		"Status":     guest.Status,
+	})
+}
+
 func main() {
 	ConnectDB()
 
@@ -143,22 +202,28 @@ func main() {
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/public", "./public")
 
-		// مسار عرض صفحة الدعوة للضيوف
-	r.GET("/invite/:token", RenderInvitePage)
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/login")
+	})
 
-	// --- الكود الجديد ---
-	// مسار لوحة التحكم لإضافة الضيوف
 	r.GET("/admin/add", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "add_guest.html", gin.H{})
 	})
-	// -------------------
+	r.GET("/login", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "login.html", gin.H{})
+	})
+	r.GET("/invite/:token", RenderInvitePage)
+	r.GET("/ticket/:token", RenderTicketPage)
+	r.GET("/verify/:token", RenderVerifyPage) // المسار الجديد للمنظمين
 
 	api := r.Group("/api")
 	{
 		api.POST("/guests", CreateGuest)
+		api.POST("/login", LoginByPhone)
 		api.POST("/rsvp", UpdateRSVP)
 	}
 
 	log.Println("🚀 الخادم يعمل الآن على الرابط: http://localhost:8080")
+	// تنبيه: عند رفع المشروع على سيرفر حقيقي، يجب تغيير localhost في دالة UpdateRSVP إلى الدومين الحقيقي
 	r.Run(":8080")
 }

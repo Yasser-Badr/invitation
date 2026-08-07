@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دعوة زفاف</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #fcfcfc; padding: 20px; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+        h1 { color: #d4af37; }
+        .location { margin: 20px 0; }
+        iframe { width: 100%; height: 250px; border: none; border-radius: 10px; }
+        .btn { padding: 12px 25px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin: 5px; color: white; transition: 0.3s; }
+        .btn-confirm { background-color: #28a745; }
+        .btn-confirm:hover { background-color: #218838; }
+        .btn-decline { background-color: #dc3545; }
+        .btn-decline:hover { background-color: #c82333; }
+        #responseMessage { margin-top: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>أهلاً بك يا {{ .Name }}</h1>
+        <p>يسعدنا جداً دعوتك لمشاركتنا فرحتنا في حفل زفافنا.</p>
+        
+        <div class="location">
+            <h3>موقع الحفل:</h3>
+            <!-- يمكنك تغيير رابط الـ iframe برابط خريطة القاعة الفعلي من Google Maps -->
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d13813.06456382902!2d31.1824317!3d30.0573981!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzDCsDAzJzI2LjYiTiAzMcKwMTAnNTYuOCJF!5e0!3m2!1sen!2seg!4v1620000000000!5m2!1sen!2seg" loading="lazy"></iframe>
+        </div>
+
+        <p>برجاء تأكيد الحضور لتنظيم الأماكن:</p>
+        <div id="action-buttons">
+            <button class="btn btn-confirm" onclick="sendRSVP('confirmed')">تأكيد الحضور</button>
+            <button class="btn btn-decline" onclick="sendRSVP('declined')">أعتذر عن الحضور</button>
+        </div>
+        <div id="responseMessage"></div>
+    </div>
+
+    <script>
+        const guestToken = "{{ .Token }}";
+
+        function sendRSVP(status) {
+            fetch('/api/rsvp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: guestToken, status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const msgDiv = document.getElementById('responseMessage');
+                if (status === 'confirmed') {
+                    msgDiv.innerHTML = "🎉 تم تأكيد حضورك، نراك على خير!";
+                    msgDiv.style.color = "green";
+                } else {
+                    msgDiv.innerHTML = "تم تسجيل اعتذارك، سنفتقدك!";
+                    msgDiv.style.color = "red";
+                }
+                document.getElementById('action-buttons').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("حدث خطأ، برجاء المحاولة لاحقاً.");
+            });
+        }
+    </script>
+</body>
+</html>

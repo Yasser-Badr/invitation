@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إضافة مدعو جديد</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .form-container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        h2 { color: #333; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; text-align: right; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-family: inherit; }
+        .input-group input[readonly] { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; }
+        .btn { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn:hover { background-color: #0056b3; }
+        #result { margin-top: 20px; display: none; padding: 15px; border-radius: 5px; border: 1px solid #c3e6cb; background-color: #d4edda; color: #155724; }
+        #qr-code { margin-top: 10px; max-width: 150px; border-radius: 5px; }
+        .share-link { display: block; margin-top: 10px; color: #007bff; text-decoration: none; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+    <div class="form-container">
+        <h2>إضافة مدعو جديد</h2>
+        <form id="addGuestForm">
+            <div class="input-group">
+                <label for="name">اسم الضيف:</label>
+                <input type="text" id="name" required placeholder="مثال: أحمد محمد">
+            </div>
+            
+            <div class="input-group">
+                <label for="phone">رقم الهاتف:</label>
+                <input type="tel" id="phone" required placeholder="مثال: 01012345678">
+            </div>
+
+            <div class="input-group">
+                <label for="location">موقع الحفل (ثابت للجميع):</label>
+                <!-- حقل ثابت للقراءة فقط -->
+                <input type="text" id="location" value="قاعة الأفراح، أسيوط" readonly>
+            </div>
+
+            <button type="submit" class="btn">حفظ وإنشاء الباركود</button>
+        </form>
+
+        <!-- مساحة تظهر بعد النجاح لعرض الباركود والرابط -->
+        <div id="result">
+            <strong>تم إضافة الضيف بنجاح!</strong>
+            <img id="qr-code" src="" alt="QR Code">
+            <a id="invite-link" class="share-link" href="" target="_blank">فتح رابط الدعوة</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('addGuestForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // منع إعادة تحميل الصفحة
+
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const btn = document.querySelector('.btn');
+
+            btn.disabled = true;
+            btn.innerText = "جاري الحفظ...";
+
+            fetch('/api/guests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, phone: phone })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.data) {
+                    // إظهار النتيجة
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.style.display = 'block';
+                    
+                    // تحديث صورة الباركود والرابط
+                    document.getElementById('qr-code').src = data.data.QRImageURL;
+                    const inviteUrl = "http://localhost:8080/invite/" + data.data.Token;
+                    
+                    const linkElement = document.getElementById('invite-link');
+                    linkElement.href = inviteUrl;
+                    linkElement.innerText = "الرابط: " + inviteUrl;
+
+                    // تفريغ الحقول لإضافة ضيف جديد
+                    document.getElementById('name').value = '';
+                    document.getElementById('phone').value = '';
+                } else {
+                    alert("حدث خطأ أثناء الإضافة!");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("تعذر الاتصال بالخادم!");
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerText = "حفظ وإنشاء الباركود";
+            });
+        });
+    </script>
+</body>
+</html>

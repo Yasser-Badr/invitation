@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	//"github.com/glebarez/sqlite"
-	"gorm.io/driver/sqlite" // تم التغيير هنا لاستخدام SQLite
 	"github.com/google/uuid"
 	"github.com/skip2/go-qrcode"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -60,7 +61,7 @@ func CreateGuest(c *gin.Context) {
 		Phone:      input.Phone,
 		Companions: input.Companions,
 		Token:      guestToken,
-		QRImageURL: "", // تم تفريغ الباركود هنا، لن يتم إنشاؤه الآن
+		QRImageURL: "",
 		Status:     "pending",
 	}
 
@@ -130,10 +131,9 @@ func UpdateRSVP(c *gin.Context) {
 		return
 	}
 
-	// === المنطق الجديد: إنشاء الباركود فقط عند التأكيد ===
 	if input.Status == "confirmed" && guest.QRImageURL == "" {
-		// الرابط الذي سيفتح عند مسح الباركود بالكاميرا عند باب القاعة
-		verifyURL := fmt.Sprintf("http://localhost:8080/verify/%s", guest.Token)
+		// تذكر تغيير الآي بي هنا عند التجربة أو الإطلاق الفعلي
+		verifyURL := fmt.Sprintf("http://192.168.1.15:8080/verify/%s", guest.Token) 
 		
 		qrFileName := fmt.Sprintf("%s.png", guest.Token)
 		qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
@@ -177,7 +177,21 @@ func RenderTicketPage(c *gin.Context) {
 	})
 }
 
-// === صفحة جديدة خاصة بالمنظمين عند باب القاعة للتحقق من الباركود ===
+// === دالة عرض لوحة التحكم ===
+func RenderDashboard(c *gin.Context) {
+	var confirmedGuests []Guest
+	var declinedGuests []Guest
+
+	// جلب البيانات مفصولة
+	DB.Where("status = ?", "confirmed").Find(&confirmedGuests)
+	DB.Where("status = ?", "declined").Find(&declinedGuests)
+
+	c.HTML(http.StatusOK, "dashboard.html", gin.H{
+		"Confirmed": confirmedGuests,
+		"Declined":  declinedGuests,
+	})
+}
+
 func RenderVerifyPage(c *gin.Context) {
 	token := c.Param("token")
 	var guest Guest
@@ -199,22 +213,27 @@ func main() {
 
 	r := gin.Default()
 
+	// دالة مساعدة لتنسيق التاريخ داخل الـ HTML
+	r.SetFuncMap(template.FuncMap{
+		"formatDate": func(t time.Time) string {
+			return t.Format("2006-01-02 15:04")
+		},
+	})
+
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/public", "./public")
 
+	// =====================================
+	// المسارات العامة (بدون حماية)
+	// =====================================
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/login")
-	})
-
-	r.GET("/admin/add", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "add_guest.html", gin.H{})
 	})
 	r.GET("/login", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "login.html", gin.H{})
 	})
 	r.GET("/invite/:token", RenderInvitePage)
 	r.GET("/ticket/:token", RenderTicketPage)
-	r.GET("/verify/:token", RenderVerifyPage) // المسار الجديد للمنظمين
 
 	api := r.Group("/api")
 	{
@@ -223,7 +242,21 @@ func main() {
 		api.POST("/rsvp", UpdateRSVP)
 	}
 
+	// =====================================
+	// المسارات المحمية (بكلمة مرور للأدمن)
+	// =====================================
+	// يمكنك تغيير اسم المستخدم وكلمة المرور من هنا
+	adminAuth := r.Group("/", gin.BasicAuth(gin.Accounts{
+		"Yaaser Badr": "Yasser.12#", // اسم المستخدم: admin | الباسورد: 123456
+	}))
+	{
+		adminAuth.GET("/admin/dashboard", RenderDashboard)
+		adminAuth.GET("/admin/add", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "add_guest.html", gin.H{})
+		})
+		adminAuth.GET("/verify/:token", RenderVerifyPage)
+	}
+
 	log.Println("🚀 الخادم يعمل الآن على الرابط: http://localhost:8080")
-	// تنبيه: عند رفع المشروع على سيرفر حقيقي، يجب تغيير localhost في دالة UpdateRSVP إلى الدومين الحقيقي
 	r.Run(":8080")
 }

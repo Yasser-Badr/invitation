@@ -256,7 +256,10 @@ func main() {
 		})
 		adminAuth.GET("/verify/:token", RenderVerifyPage)
 	}
-
-	log.Println("🚀 الخادم يعمل الآن على الرابط: http://localhost:8080")
-	r.Run(":8080")
+	port := os.Getenv("PORT")
+if port == "" {
+    port = "8080"
+}
+log.Println("🚀 الخادم يعمل على المنفذ:", port)
+r.Run(":" + port)
 }

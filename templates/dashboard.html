@@ -5,133 +5,203 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة تحكم المنظمين</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; margin: 0; }
         .container { max-width: 1200px; margin: 0 auto; }
-        .header-actions { display: flex; justify-content: space-between; margin-bottom: 20px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .btn { padding: 10px 20px; border-radius: 8px; font-weight: bold; text-decoration: none; color: white; border: none; cursor: pointer; display: inline-block; }
+        .header-actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); gap: 10px; }
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: bold; text-decoration: none; color: white; border: none; cursor: pointer; display: inline-block; font-size: 14px; }
         .btn-primary { background-color: #1b4332; }
         .btn-secondary { background-color: #f1c40f; color: #333; }
         .btn-print { background-color: #34495e; color: white; margin-bottom: 15px; }
-        .section { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 30px; }
-        h2 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .btn-danger { background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px; }
+        .btn-edit { background-color: #3498db; color: white; padding: 5px 10px; font-size: 12px; margin-left: 5px; }
+        
+        /* التبويبات */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; overflow-x: auto; }
+        .tab-btn { padding: 10px 20px; background: #e0e0e0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; white-space: nowrap; }
+        .tab-btn.active { background: #1b4332; color: white; }
+        
+        .tab-content { display: none; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .tab-content.active { display: block; overflow-x: auto; }
+        
+        h2 { color: #2c3e50; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
         th { background-color: #1b4332; color: white; }
-        .status-badge { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; }
-        .status-green { background-color: #d4edda; color: #155724; }
-        .status-red { background-color: #f8d7da; color: #721c24; }
+        
+        .status { font-weight: bold; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
+        .status-pending { background-color: #f39c12; color: white; }
+        .status-confirmed { background-color: #27ae60; color: white; }
+        .status-declined { background-color: #c0392b; color: white; }
+
+        /* نافذة التعديل المنبثقة */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
+        .modal input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header-actions">
-        <div>
-            <h2>لوحة الإدارة والإحصائيات</h2>
-        </div>
+        <h2>لوحة الإدارة والإحصائيات</h2>
         <div>
             <a href="/admin/add" class="btn btn-primary">➕ إضافة مدعو جديد</a>
             <a href="/login" class="btn btn-secondary" target="_blank">🔗 شاشة دخول الضيوف</a>
         </div>
     </div>
 
-    <!-- قسم المؤكدين -->
-    <div class="section">
-        <h2>✅ المدعوون الذين أكدوا الحضور ({{ len .Confirmed }})</h2>
-        <button class="btn btn-print" onclick="printTable('confirmedTable', 'قائمة مؤكدي الحضور')">🖨️ طباعة قائمة المؤكدين</button>
-        <div id="confirmedTable">
-            <table>
-                <thead>
-                    <tr>
-                        <th>رقم التسلسل</th>
-                        <th>الاسم</th>
-                        <th>الهاتف</th>
-                        <th>عدد المرافقين</th>
-                        <th>تاريخ التأكيد</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Confirmed }}
-                    <tr>
-                        <td>#{{ .ID }}</td>
-                        <td>{{ .Name }}</td>
-                        <td>{{ .Phone }}</td>
-                        <td>{{ .Companions }}</td>
-                        <td>{{ formatDate .UpdatedAt }}</td>
-                    </tr>
-                    {{ else }}
-                    <tr>
-                        <td colspan="5">لا يوجد مدعوين أكدوا الحضور حتى الآن.</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
-        </div>
+    <!-- أزرار التبويبات -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('all')">📋 جميع المدعوين</button>
+        <button class="tab-btn" onclick="openTab('confirmed')">✅ مؤكدي الحضور ({{ len .Confirmed }})</button>
+        <button class="tab-btn" onclick="openTab('declined')">❌ المعتذرين ({{ len .Declined }})</button>
     </div>
 
-    <!-- قسم المعتذرين -->
-    <div class="section">
-        <h2>❌ المدعوون الذين اعتذروا عن الحضور ({{ len .Declined }})</h2>
-        <button class="btn btn-print" onclick="printTable('declinedTable', 'قائمة المعتذرين')">🖨️ طباعة قائمة المعتذرين</button>
-        <div id="declinedTable">
-            <table>
-                <thead>
-                    <tr>
-                        <th>رقم التسلسل</th>
-                        <th>الاسم</th>
-                        <th>الهاتف</th>
-                        <th>عدد المرافقين</th>
-                        <th>تاريخ الاعتذار</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Declined }}
-                    <tr>
-                        <td>#{{ .ID }}</td>
-                        <td>{{ .Name }}</td>
-                        <td>{{ .Phone }}</td>
-                        <td>{{ .Companions }}</td>
-                        <td>{{ formatDate .UpdatedAt }}</td>
-                    </tr>
-                    {{ else }}
-                    <tr>
-                        <td colspan="5">لا يوجد معتذرين.</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
+    <!-- تبويب: جميع المدعوين (مع الحذف والتعديل) -->
+    <div id="all" class="tab-content active">
+        <h2>جميع المدعوين المسجلين</h2>
+        
+        <!-- زر الطباعة الجديد الخاص بجميع المدعوين -->
+        <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة جميع المدعوين</a>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>م</th>
+                    <th>الاسم</th>
+                    <th>الهاتف</th>
+                    <th>المرافقين</th>
+                    <th>الحالة</th>
+                    <th>إجراءات</th>
+                </tr>
+            </thead>
+            <!-- باقي الكود كما هو ... -->
+            <tbody>
+                {{ range .AllGuests }}
+                <tr>
+                    <td>{{ .ID }}</td>
+                    <td>{{ .Name }}</td>
+                    <td>{{ .Phone }}</td>
+                    <td>{{ .Companions }}</td>
+                    <td>
+                        {{ if eq .Status "pending" }}<span class="status status-pending">قيد الانتظار</span>{{ end }}
+                        {{ if eq .Status "confirmed" }}<span class="status status-confirmed">مؤكد</span>{{ end }}
+                        {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
+                    </td>
+                    <td>
+                        <button class="btn btn-edit" onclick="openEditModal('{{.ID}}', '{{.Name}}', '{{.Phone}}', '{{.Companions}}')">تعديل</button>
+                        <button class="btn btn-danger" onclick="deleteGuest('{{.ID}}')">حذف</button>
+                    </td>
+                </tr>
+                {{ else }}
+                <tr><td colspan="6">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- تبويب: المؤكدين -->
+    <div id="confirmed" class="tab-content">
+        <h2>المدعوون الذين أكدوا الحضور</h2>
+        <!-- رابط طباعة آمن للموبايل يفتح في صفحة جديدة -->
+        <a href="/admin/print/confirmed" target="_blank" class="btn btn-print">🖨️ طباعة قائمة المؤكدين</a>
+        <table>
+            <thead>
+                <tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>المرافقين</th><th>تاريخ التأكيد</th></tr>
+            </thead>
+            <tbody>
+                {{ range .Confirmed }}
+                <tr><td>{{ .ID }}</td><td>{{ .Name }}</td><td>{{ .Phone }}</td><td>{{ .Companions }}</td><td>{{ formatDate .UpdatedAt }}</td></tr>
+                {{ else }}
+                <tr><td colspan="5">لا يوجد مدعوين أكدوا الحضور.</td></tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- تبويب: المعتذرين -->
+    <div id="declined" class="tab-content">
+        <h2>المدعوون الذين اعتذروا</h2>
+        <a href="/admin/print/declined" target="_blank" class="btn btn-print">🖨️ طباعة قائمة المعتذرين</a>
+        <table>
+            <thead>
+                <tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>المرافقين</th><th>تاريخ الاعتذار</th></tr>
+            </thead>
+            <tbody>
+                {{ range .Declined }}
+                <tr><td>{{ .ID }}</td><td>{{ .Name }}</td><td>{{ .Phone }}</td><td>{{ .Companions }}</td><td>{{ formatDate .UpdatedAt }}</td></tr>
+                {{ else }}
+                <tr><td colspan="5">لا يوجد معتذرين.</td></tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- نافذة التعديل المنبثقة -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h3>تعديل بيانات المدعو</h3>
+        <input type="hidden" id="editId">
+        <label>الاسم:</label><input type="text" id="editName">
+        <label>الهاتف:</label><input type="text" id="editPhone">
+        <label>المرافقين:</label><input type="number" id="editCompanions">
+        <div style="margin-top: 15px; text-align: left;">
+            <button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
+            <button class="btn btn-primary" onclick="saveEdit()">حفظ التعديلات</button>
         </div>
     </div>
 </div>
 
 <script>
-    // دالة طباعة تقارير الجداول بشكل مستقل ومرتب
-    function printTable(divId, title) {
-        var printContents = document.getElementById(divId).innerHTML;
-        var originalContents = document.body.innerHTML;
+    // نظام التبويبات
+    function openTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
 
-        var printWindow = window.open('', '', 'height=600,width=800');
-        printWindow.document.write('<html dir="rtl"><head><title>' + title + '</title>');
-        printWindow.document.write('<style>');
-        printWindow.document.write('body { font-family: Tahoma, sans-serif; padding: 20px; }');
-        printWindow.document.write('table { width: 100%; border-collapse: collapse; }');
-        printWindow.document.write('th, td { border: 1px solid #000; padding: 10px; text-align: center; }');
-        printWindow.document.write('th { background-color: #f2f2f2; }');
-        printWindow.document.write('h2 { text-align: center; }');
-        printWindow.document.write('</style></head><body>');
-        printWindow.document.write('<h2>' + title + '</h2>');
-        printWindow.document.write(printContents);
-        printWindow.document.write('</body></html>');
-        
-        printWindow.document.close();
-        printWindow.focus();
-        // تأخير بسيط لضمان تحميل النافذة قبل الطباعة
-        setTimeout(function() {
-            printWindow.print();
-            printWindow.close();
-        }, 250);
+    // دوال الحذف
+    function deleteGuest(id) {
+        if (confirm('هل أنت متأكد من حذف هذا المدعو تماماً من النظام؟')) {
+            fetch('/admin/api/guests/' + id, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => { alert(data.message); location.reload(); })
+            .catch(err => alert("حدث خطأ"));
+        }
+    }
+
+    // دوال التعديل
+    function openEditModal(id, name, phone, companions) {
+        document.getElementById('editId').value = id;
+        document.getElementById('editName').value = name;
+        document.getElementById('editPhone').value = phone;
+        document.getElementById('editCompanions').value = companions;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+    
+    function closeModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    function saveEdit() {
+        const id = document.getElementById('editId').value;
+        const data = {
+            name: document.getElementById('editName').value,
+            phone: document.getElementById('editPhone').value,
+            companions: parseInt(document.getElementById('editCompanions').value) || 0
+        };
+
+        fetch('/admin/api/guests/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(data => { alert("تم التعديل بنجاح"); location.reload(); })
+        .catch(err => alert("حدث خطأ أثناء التعديل"));
     }
 </script>
-
 </body>
 </html>

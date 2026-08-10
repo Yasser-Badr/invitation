@@ -132,8 +132,13 @@ func UpdateRSVP(c *gin.Context) {
 	}
 
 	if input.Status == "confirmed" && guest.QRImageURL == "" {
-		// تذكر تغيير الآي بي هنا عند التجربة أو الإطلاق الفعلي
-		verifyURL := fmt.Sprintf("http://192.168.1.15:8080/verify/%s", guest.Token) 
+		// تم التعديل هنا ليلتقط الدومين الخاص بـ Google Cloud Run أو اللوكال هوست تلقائياً
+		scheme := "http"
+		if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		host := c.Request.Host
+		verifyURL := fmt.Sprintf("%s://%s/verify/%s", scheme, host, guest.Token)
 		
 		qrFileName := fmt.Sprintf("%s.png", guest.Token)
 		qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
@@ -177,19 +182,94 @@ func RenderTicketPage(c *gin.Context) {
 	})
 }
 
-// === دالة عرض لوحة التحكم ===
+// === دالة عرض لوحة التحكم المُحدثة ===
 func RenderDashboard(c *gin.Context) {
+	var allGuests []Guest
 	var confirmedGuests []Guest
 	var declinedGuests []Guest
 
-	// جلب البيانات مفصولة
+	// جلب جميع البيانات وتقسيمها
+	DB.Find(&allGuests)
 	DB.Where("status = ?", "confirmed").Find(&confirmedGuests)
 	DB.Where("status = ?", "declined").Find(&declinedGuests)
 
 	c.HTML(http.StatusOK, "dashboard.html", gin.H{
+		"AllGuests": allGuests,
 		"Confirmed": confirmedGuests,
 		"Declined":  declinedGuests,
 	})
+}
+
+// === دالة الطباعة المنفصلة ===
+func PrintReport(c *gin.Context) {
+	status := c.Param("status")
+	var guests []Guest
+	var title string
+
+	if status == "confirmed" {
+		DB.Where("status = ?", "confirmed").Find(&guests)
+		title = "قائمة مؤكدي الحضور"
+	} else if status == "declined" {
+		DB.Where("status = ?", "declined").Find(&guests)
+		title = "قائمة المعتذرين عن الحضور"
+	} else if status == "all" {
+		DB.Find(&guests) // جلب جميع المدعوين
+		title = "قائمة جميع المدعوين"
+	} else {
+		c.String(http.StatusBadRequest, "طلب غير صالح")
+		return
+	}
+
+	c.HTML(http.StatusOK, "print.html", gin.H{
+		"Title":  title,
+		"Guests": guests,
+	})
+}
+
+// === دالة الحذف المحدثة (لحذف الباركود مع البيانات) ===
+// === دالة الحذف المحدثة (لحذف نهائي Unscoped) ===
+func DeleteGuestAdmin(c *gin.Context) {
+	id := c.Param("id")
+	var guest Guest
+
+	// 1. البحث عن الضيف أولاً (نستخدم Unscoped للبحث حتى لو كان محذوفاً وهمياً)
+	if err := DB.Unscoped().First(&guest, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "الضيف غير موجود"})
+		return
+	}
+
+	// 2. حذف صورة الباركود من السيرفر إذا كانت موجودة
+	if guest.QRImageURL != "" {
+		filePath := "." + guest.QRImageURL
+		os.Remove(filePath)
+	}
+
+	// 3. حذف الضيف نهائياً من قاعدة البيانات (Hard Delete)
+	if err := DB.Unscoped().Delete(&guest).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل الحذف من قاعدة البيانات"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "تم الحذف النهائي بنجاح"})
+}
+func UpdateGuestAdmin(c *gin.Context) {
+	id := c.Param("id")
+	var input CreateGuestInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var guest Guest
+	if err := DB.First(&guest, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "الضيف غير موجود"})
+		return
+	}
+	
+	guest.Name = input.Name
+	guest.Phone = input.Phone
+	guest.Companions = input.Companions
+	DB.Save(&guest)
+	c.JSON(http.StatusOK, gin.H{"message": "تم التعديل بنجاح"})
 }
 
 func RenderVerifyPage(c *gin.Context) {
@@ -245,9 +325,8 @@ func main() {
 	// =====================================
 	// المسارات المحمية (بكلمة مرور للأدمن)
 	// =====================================
-	// يمكنك تغيير اسم المستخدم وكلمة المرور من هنا
 	adminAuth := r.Group("/", gin.BasicAuth(gin.Accounts{
-		"Yaaser Badr": "Yasser.12#", // اسم المستخدم: admin | الباسورد: 123456
+		"Yaaser Badr": "Yasser.12#", // اسم المستخدم والباسورد كما طلبت
 	}))
 	{
 		adminAuth.GET("/admin/dashboard", RenderDashboard)
@@ -255,11 +334,18 @@ func main() {
 			c.HTML(http.StatusOK, "add_guest.html", gin.H{})
 		})
 		adminAuth.GET("/verify/:token", RenderVerifyPage)
+		
+		// مسارات التحديثات الجديدة
+		adminAuth.GET("/admin/print/:status", PrintReport)
+		adminAuth.DELETE("/admin/api/guests/:id", DeleteGuestAdmin)
+		adminAuth.PUT("/admin/api/guests/:id", UpdateGuestAdmin)
 	}
+	
 	port := os.Getenv("PORT")
-if port == "" {
-    port = "8080"
-}
+	if port == "" {
+		port = "8080"
+	}
+	
 	// تشغيل الخادم على جميع واجهات الشبكة
 	r.Run("0.0.0.0:" + port)
 }

@@ -4,30 +4,238 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>دعوة زفاف</title>
+    <!-- استدعاء خطوط أنيقة تناسب دعوات الزفاف -->
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f9f8f3; padding: 20px; display: flex; justify-content: center; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 400px; width: 100%; text-align: center; }
-        .details-box { background-color: #f1c40f; padding: 10px; border-radius: 10px; display: inline-block; margin-bottom: 20px; font-weight: bold; }
-        .btn-group { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
-        .btn { padding: 15px; border: 1px solid #1b4332; border-radius: 10px; font-size: 16px; cursor: pointer; background: white; color: #1b4332; font-weight: bold; transition: 0.3s; }
-        .btn:hover { background-color: #1b4332; color: white; }
+        :root {
+            --olive-color: #6b7045;
+            --brown-color: #9b705d;
+            --bg-color: #fcfbf8;
+        }
+        
+        body { 
+            font-family: 'Tajawal', sans-serif; 
+            background-color: #e9e8e3; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        
+        .card { 
+            background: var(--bg-color); 
+            background-image: radial-gradient(circle at top right, rgba(232,187,163,0.15) 0%, transparent 40%),
+                              radial-gradient(circle at bottom left, rgba(107,112,69,0.1) 0%, transparent 40%);
+            padding: 40px 20px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+            max-width: 420px; 
+            width: 100%; 
+            text-align: center; 
+            position: relative; 
+            overflow: hidden; 
+        }
+
+        .title-text {
+            font-family: 'Amiri', serif;
+            font-size: 55px;
+            color: var(--olive-color);
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .subtitle {
+            color: var(--brown-color);
+            font-size: 18px;
+            font-weight: 700;
+            margin: 15px 0 25px;
+            line-height: 1.8;
+        }
+
+        .names {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 26px;
+            font-weight: bold;
+            color: var(--brown-color);
+            margin: 25px 0;
+        }
+
+        .names .ornament {
+            color: var(--olive-color);
+            font-size: 30px;
+            font-family: 'Amiri', serif;
+        }
+
+        .details-grid {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px 0;
+            padding: 0 10px;
+        }
+
+        /* تنسيق عناصر الشبكة (المكان والتاريخ) */
+        .details-grid > div, .details-grid > a {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--brown-color);
+            font-weight: bold;
+            font-size: 16px;
+            line-height: 1.6;
+            text-decoration: none; /* لإخفاء خط الرابط */
+        }
+
+        /* تأثير عند تمرير الماوس على الموقع */
+        .location-link {
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .location-link:hover {
+            transform: scale(1.08);
+        }
+
+        .divider {
+            width: 2px;
+            height: 70px;
+            background-color: var(--brown-color);
+            opacity: 0.7;
+        }
+
+        .icon {
+            width: 28px;
+            height: 28px;
+            margin-bottom: 10px;
+            fill: var(--olive-color);
+        }
+
+        .footer-quote {
+            font-family: 'Amiri', serif;
+            font-size: 24px;
+            color: var(--olive-color);
+            margin: 25px 0;
+        }
+
+        .inviter {
+            color: var(--brown-color);
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .guest-info-box { 
+            background-color: rgba(255, 255, 255, 0.7); 
+            padding: 15px; 
+            border-radius: 10px; 
+            border: 1px dashed var(--olive-color);
+            margin-bottom: 25px; 
+            color: var(--olive-color);
+            font-weight: bold;
+            font-size: 17px;
+            line-height: 1.8;
+        }
+
+        .btn-group { 
+            display: flex; 
+            gap: 15px; 
+            justify-content: center; 
+        }
+
+        .btn { 
+            flex: 1;
+            padding: 12px; 
+            border: 2px solid var(--olive-color); 
+            border-radius: 10px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            background: white; 
+            color: var(--olive-color); 
+            font-weight: bold; 
+            font-family: 'Tajawal', sans-serif;
+            transition: 0.3s; 
+        }
+
+        .btn:hover { 
+            background-color: var(--olive-color); 
+            color: white; 
+        }
+
+        .btn-decline {
+            border-color: var(--brown-color);
+            color: var(--brown-color);
+        }
+
+        .btn-decline:hover {
+            background-color: var(--brown-color);
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>زواج حمد ونورة</h2>
-        <div class="details-box">
-            تفاصيل المناسبة<br>واسم المدعوة<br>وعدد المرافقين
-        </div>
         
-        <h3>حياك الله يا : {{ .Name }}</h3>
-        <p>عدد المرافقين : {{ .Companions }}</p>
+        <h1 class="title-text">دعوة</h1>
+        
+        <div class="subtitle">
+            بكل الود والمحبة والتقدير<br>
+            نتشرف بدعوتكم لحضور حفل زفاف
+        </div>
+
+        <div class="names">
+            <div>عبدالله</div>
+            <div class="ornament">و</div>
+            <div>عائشة</div>
+        </div>
+
+        <div class="details-grid">
+            <!-- تفاصيل المكان (تحول إلى رابط قابل للضغط) -->
+            <!-- ضع رابط خرائط جوجل الصحيح مكان: https://maps.google.com/?q=شارع+الجامعة -->
+            <a href="https://maps.google.com/?q=شارع+الجامعة" target="_blank" class="location-link" title="اضغط لفتح الموقع على الخريطة">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                <span>قاعة فرح</span>
+                <span>شارع الجامعة</span>
+            </a>
+            
+            <div class="divider"></div>
+            
+            <!-- تفاصيل التاريخ -->
+            <div>
+                <svg class="icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zm-7 5h5v5h-5z"/></svg>
+                <span>يوم الجمعة</span>
+                <span>١٩ - ٠٥ - ١٤٤٣ هـ</span>
+            </div>
+        </div>
+
+        <div class="footer-quote">
+            وبحضوركم يتم لنا الفرح والسرور
+        </div>
+
+      <!--  <div class="inviter">
+            الداعية<br>
+            أم العروس وبناتها
+        </div>-->
+
+        <div class="guest-info-box">
+            حياك الله يا : {{ .Name }}<br>
+            عدد المرافقين : {{ .Companions }}
+        </div>
 
         <div class="btn-group">
             <button class="btn" onclick="sendRSVP('confirmed')">تأكيد الحضور</button>
-            <button class="btn" onclick="sendRSVP('declined')">أعتذر عن الحضور</button>
+            <button class="btn btn-decline" onclick="sendRSVP('declined')">أعتذر عن الحضور</button>
         </div>
+
     </div>
+
 <script>
     const guestToken = "{{ .Token }}";
     function sendRSVP(status) {
@@ -41,11 +249,10 @@
             if (status === 'confirmed') {
                 window.location.href = "/ticket/" + guestToken;
             } else {
-                // استبدال محتوى الكارد برسالة لطيفة
                 document.querySelector('.card').innerHTML = `
-                    <div style="padding: 20px;">
-                        <h2 style="color: #e74c3c; margin-bottom: 15px;">تم تسجيل اعتذارك 🌸</h2>
-                        <p style="font-size: 16px; color: #7f8c8d; line-height: 1.8;">
+                    <div style="padding: 40px 20px;">
+                        <h2 style="color: var(--brown-color); margin-bottom: 20px; font-family: 'Amiri', serif; font-size: 30px;">تم تسجيل اعتذارك 🌸</h2>
+                        <p style="font-size: 18px; color: var(--olive-color); line-height: 1.8; font-weight: bold;">
                             مقدرين ظروفك، ونتمنى أن تشاركنا أفراحنا في مناسبات قادمة بإذن الله.<br>شكراً لك.
                         </p>
                     </div>

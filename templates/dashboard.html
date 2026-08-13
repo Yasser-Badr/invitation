@@ -15,7 +15,6 @@
         .btn-danger { background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px; }
         .btn-edit { background-color: #3498db; color: white; padding: 5px 10px; font-size: 12px; margin-left: 5px; }
         
-        /* التبويبات */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; overflow-x: auto; }
         .tab-btn { padding: 10px 20px; background: #e0e0e0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; white-space: nowrap; }
         .tab-btn.active { background: #1b4332; color: white; }
@@ -33,10 +32,10 @@
         .status-confirmed { background-color: #27ae60; color: white; }
         .status-declined { background-color: #c0392b; color: white; }
 
-        /* نافذة التعديل المنبثقة */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
         .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
-        .modal input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .modal input, .modal select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .modal label { font-weight: bold; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -46,22 +45,21 @@
         <h2>لوحة الإدارة والإحصائيات</h2>
         <div>
             <a href="/admin/add" class="btn btn-primary">➕ إضافة مدعو جديد</a>
+            <a href="/scan" class="btn btn-primary" style="background-color: #27ae60;" target="_blank">📷 فحص الباركود</a>
+            <a href="/admin/settings" class="btn btn-primary" style="background-color: #8e44ad;">⚙️ تعديل بيانات الدعوة</a>
             <a href="/login" class="btn btn-secondary" target="_blank">🔗 شاشة دخول الضيوف</a>
         </div>
     </div>
 
-    <!-- أزرار التبويبات -->
     <div class="tabs">
         <button class="tab-btn active" onclick="openTab('all')">📋 جميع المدعوين</button>
         <button class="tab-btn" onclick="openTab('confirmed')">✅ مؤكدي الحضور ({{ len .Confirmed }})</button>
         <button class="tab-btn" onclick="openTab('declined')">❌ المعتذرين ({{ len .Declined }})</button>
     </div>
 
-    <!-- تبويب: جميع المدعوين (مع الحذف والتعديل) -->
+    <!-- تبويب: جميع المدعوين -->
     <div id="all" class="tab-content active">
         <h2>جميع المدعوين المسجلين</h2>
-        
-        <!-- زر الطباعة الجديد الخاص بجميع المدعوين -->
         <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة جميع المدعوين</a>
         
         <table>
@@ -72,10 +70,10 @@
                     <th>الهاتف</th>
                     <th>المرافقين</th>
                     <th>الحالة</th>
+                    <th>الدخول</th>
                     <th>إجراءات</th>
                 </tr>
             </thead>
-            <!-- باقي الكود كما هو ... -->
             <tbody>
                 {{ range .AllGuests }}
                 <tr>
@@ -89,12 +87,25 @@
                         {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
                     </td>
                     <td>
-                        <button class="btn btn-edit" onclick="openEditModal('{{.ID}}', '{{.Name}}', '{{.Phone}}', '{{.Companions}}')">تعديل</button>
+                        {{ if .CheckedIn }}
+                            <span class="status status-confirmed">تم الدخول</span>
+                        {{ else }}
+                            <span class="status status-pending">لم يدخل</span>
+                        {{ end }}
+                    </td>
+                    <td>
+                        <button class="btn btn-edit" 
+                            data-id="{{.ID}}" 
+                            data-name="{{.Name}}" 
+                            data-phone="{{.Phone}}" 
+                            data-companions="{{.Companions}}" 
+                            data-checked="{{.CheckedIn}}"
+                            onclick="openEditModalFromBtn(this)">تعديل</button>
                         <button class="btn btn-danger" onclick="deleteGuest('{{.ID}}')">حذف</button>
                     </td>
                 </tr>
                 {{ else }}
-                <tr><td colspan="6">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
+                <tr><td colspan="7">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
                 {{ end }}
             </tbody>
         </table>
@@ -103,7 +114,6 @@
     <!-- تبويب: المؤكدين -->
     <div id="confirmed" class="tab-content">
         <h2>المدعوون الذين أكدوا الحضور</h2>
-        <!-- رابط طباعة آمن للموبايل يفتح في صفحة جديدة -->
         <a href="/admin/print/confirmed" target="_blank" class="btn btn-print">🖨️ طباعة قائمة المؤكدين</a>
         <table>
             <thead>
@@ -138,14 +148,27 @@
     </div>
 </div>
 
-<!-- نافذة التعديل المنبثقة -->
+<!-- نافذة التعديل -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <h3>تعديل بيانات المدعو</h3>
         <input type="hidden" id="editId">
-        <label>الاسم:</label><input type="text" id="editName">
-        <label>الهاتف:</label><input type="text" id="editPhone">
-        <label>المرافقين:</label><input type="number" id="editCompanions">
+        
+        <label>الاسم:</label>
+        <input type="text" id="editName">
+        
+        <label>الهاتف:</label>
+        <input type="text" id="editPhone">
+        
+        <label>المرافقين:</label>
+        <input type="number" id="editCompanions">
+        
+        <label>حالة الدخول:</label>
+        <select id="editCheckedIn">
+            <option value="false">لم يدخل بعد</option>
+            <option value="true">تم الدخول</option>
+        </select>
+        
         <div style="margin-top: 15px; text-align: left;">
             <button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
             <button class="btn btn-primary" onclick="saveEdit()">حفظ التعديلات</button>
@@ -154,7 +177,6 @@
 </div>
 
 <script>
-    // نظام التبويبات
     function openTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -162,7 +184,6 @@
         event.currentTarget.classList.add('active');
     }
 
-    // دوال الحذف
     function deleteGuest(id) {
         if (confirm('هل أنت متأكد من حذف هذا المدعو تماماً من النظام؟')) {
             fetch('/admin/api/guests/' + id, { method: 'DELETE' })
@@ -172,12 +193,18 @@
         }
     }
 
-    // دوال التعديل
-    function openEditModal(id, name, phone, companions) {
+    function openEditModalFromBtn(btn) {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        const phone = btn.getAttribute('data-phone');
+        const companions = btn.getAttribute('data-companions');
+        const checkedIn = btn.getAttribute('data-checked') === 'true';
+
         document.getElementById('editId').value = id;
         document.getElementById('editName').value = name;
         document.getElementById('editPhone').value = phone;
         document.getElementById('editCompanions').value = companions;
+        document.getElementById('editCheckedIn').value = checkedIn ? "true" : "false";
         document.getElementById('editModal').style.display = 'flex';
     }
     
@@ -190,7 +217,8 @@
         const data = {
             name: document.getElementById('editName').value,
             phone: document.getElementById('editPhone').value,
-            companions: parseInt(document.getElementById('editCompanions').value) || 0
+            companions: parseInt(document.getElementById('editCompanions').value) || 0,
+            checked_in: document.getElementById('editCheckedIn').value === "true"
         };
 
         fetch('/admin/api/guests/' + id, {

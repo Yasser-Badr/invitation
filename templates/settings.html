@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تعديل بيانات الدعوة</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f4f7f6; padding: 20px; margin: 0; }
+        .container { max-width: 750px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); }
+        h2 { color: #1b4332; text-align: center; margin-bottom: 10px; }
+        h3 { color: #1b4332; margin: 30px 0 15px; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; color: #2c3e50; font-size: 14px; }
+        input[type="text"], input[type="url"], textarea, input[type="color"] { 
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; 
+            font-size: 15px; box-sizing: border-box; 
+        }
+        textarea { min-height: 80px; resize: vertical; }
+        input[type="file"] { width: 100%; padding: 8px; border: 1px dashed #aaa; border-radius: 8px; background: #fafafa; }
+        .row { display: flex; gap: 15px; }
+        .row .form-group { flex: 1; }
+        button { width: 100%; padding: 15px; background: #1b4332; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        button:hover { background: #081c15; }
+        .success { background: #d4edda; color: #155724; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+        .back { display: inline-block; margin-bottom: 20px; color: #1b4332; text-decoration: none; font-weight: bold; }
+        .preview-img { max-height: 70px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee; }
+        .preview-icon { max-height: 40px; margin-bottom: 8px; }
+        .remove-label { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: normal; cursor: pointer; font-size: 13px; color: #c0392b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/admin/dashboard" class="back">← العودة للوحة التحكم</a>
+        <h2>⚙️ تعديل بيانات الدعوة</h2>
+
+        {{ if eq (index . "success") "1" }}
+        <div class="success">تم حفظ التعديلات بنجاح ✅</div>
+        {{ end }}
+
+        <form method="POST" action="/admin/settings" enctype="multipart/form-data">
+            
+            <h3>النصوص الأساسية</h3>
+
+            <div class="form-group">
+                <label>عنوان الدعوة</label>
+                <input type="text" name="event_title" value="{{ .Settings.EventTitle }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>النص الترحيبي</label>
+                <textarea name="event_subtitle" required>{{ .Settings.EventSubtitle }}</textarea>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>الاسم الأول</label>
+                    <input type="text" name="person1" value="{{ .Settings.Person1 }}">
+                </div>
+                <div class="form-group">
+                    <label>الاسم الثاني</label>
+                    <input type="text" name="person2" value="{{ .Settings.Person2 }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>التاريخ</label>
+                <textarea name="date_text" required>{{ .Settings.DateText }}</textarea>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>اسم المكان</label>
+                    <input type="text" name="location_name" value="{{ .Settings.LocationName }}">
+                </div>
+                <div class="form-group">
+                    <label>عنوان المكان</label>
+                    <input type="text" name="location_address" value="{{ .Settings.LocationAddress }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>رابط خرائط جوجل</label>
+                <input type="url" name="maps_url" value="{{ .Settings.MapsURL }}">
+            </div>
+
+            <div class="form-group">
+                <label>الجملة الختامية</label>
+                <input type="text" name="footer_quote" value="{{ .Settings.FooterQuote }}">
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>اللون الأساسي</label>
+                    <input type="color" name="primary_color" value="{{ .Settings.PrimaryColor }}">
+                </div>
+                <div class="form-group">
+                    <label>اللون الثانوي</label>
+                    <input type="color" name="secondary_color" value="{{ .Settings.SecondaryColor }}">
+                </div>
+            </div>
+
+            <h3>الصور والأيقونات</h3>
+
+            <div class="form-group">
+                <label>صورة اللوجو / الزخرفة العلوية</label>
+                {{ if .Settings.LogoURL }}
+                    <div>
+                        <img src="{{ .Settings.LogoURL }}" class="preview-img">
+                        <label class="remove-label">
+                            <input type="checkbox" name="remove_logo" value="1"> حذف الصورة الحالية
+                        </label>
+                    </div>
+                {{ end }}
+                <input type="file" name="logo" accept="image/*">
+            </div>
+
+            <div class="form-group">
+                <label>خلفية البطاقة (اختياري)</label>
+                {{ if .Settings.BackgroundURL }}
+                    <div>
+                        <img src="{{ .Settings.BackgroundURL }}" class="preview-img">
+                        <label class="remove-label">
+                            <input type="checkbox" name="remove_background" value="1"> حذف الخلفية الحالية
+                        </label>
+                    </div>
+                {{ end }}
+                <input type="file" name="background" accept="image/*">
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>أيقونة الموقع</label>
+                    {{ if .Settings.IconLocationURL }}
+                        <div>
+                            <img src="{{ .Settings.IconLocationURL }}" class="preview-icon">
+                            <label class="remove-label">
+                                <input type="checkbox" name="remove_icon_location" value="1"> حذف الأيقونة
+                            </label>
+                        </div>
+                    {{ end }}
+                    <input type="file" name="icon_location" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>أيقونة التاريخ</label>
+                    {{ if .Settings.IconDateURL }}
+                        <div>
+                            <img src="{{ .Settings.IconDateURL }}" class="preview-icon">
+                            <label class="remove-label">
+                                <input type="checkbox" name="remove_icon_date" value="1"> حذف الأيقونة
+                            </label>
+                        </div>
+                    {{ end }}
+                    <input type="file" name="icon_date" accept="image/*">
+                </div>
+            </div>
+
+            <button type="submit">💾 حفظ التعديلات</button>
+        </form>
+    </div>
+</body>
+</html>

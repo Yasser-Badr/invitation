@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>دعوة زفاف</title>
-    <!-- استدعاء خطوط أنيقة تناسب دعوات الزفاف -->
+    <title>{{ .Settings.EventTitle }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --olive-color: #6b7045;
-            --brown-color: #9b705d;
+            --olive-color: {{ .Settings.PrimaryColor }};
+            --brown-color: {{ .Settings.SecondaryColor }};
             --bg-color: #fcfbf8;
         }
         
@@ -38,9 +37,21 @@
             overflow: hidden; 
         }
 
+        .card.has-bg {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .logo-img {
+            max-width: 110px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+        }
+
         .title-text {
             font-family: 'Amiri', serif;
-            font-size: 55px;
+            font-size: 52px;
             color: var(--olive-color);
             margin: 0;
             font-weight: bold;
@@ -48,27 +59,28 @@
 
         .subtitle {
             color: var(--brown-color);
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 700;
             margin: 15px 0 25px;
             line-height: 1.8;
+            white-space: pre-line;
         }
 
         .names {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 25px;
+            gap: 20px;
             font-family: 'Tajawal', sans-serif;
-            font-size: 26px;
+            font-size: 24px;
             font-weight: bold;
             color: var(--brown-color);
-            margin: 25px 0;
+            margin: 20px 0;
         }
 
         .names .ornament {
             color: var(--olive-color);
-            font-size: 30px;
+            font-size: 28px;
             font-family: 'Amiri', serif;
         }
 
@@ -80,7 +92,6 @@
             padding: 0 10px;
         }
 
-        /* تنسيق عناصر الشبكة (المكان والتاريخ) */
         .details-grid > div, .details-grid > a {
             flex: 1;
             display: flex;
@@ -88,28 +99,28 @@
             align-items: center;
             color: var(--brown-color);
             font-weight: bold;
-            font-size: 16px;
+            font-size: 15px;
             line-height: 1.6;
-            text-decoration: none; /* لإخفاء خط الرابط */
+            text-decoration: none;
         }
 
-        /* تأثير عند تمرير الماوس على الموقع */
         .location-link {
             transition: transform 0.3s ease;
             cursor: pointer;
         }
         
         .location-link:hover {
-            transform: scale(1.08);
+            transform: scale(1.06);
         }
 
-        .divider {
-            width: 2px;
-            height: 70px;
-            background-color: var(--brown-color);
-            opacity: 0.7;
-        }
-
+.divider {
+    font-size: 28px;
+    color: var(--brown-color);
+    opacity: 0.5;
+    font-weight: 300;
+    padding: 0 8px;
+    align-self: center;
+}
         .icon {
             width: 28px;
             height: 28px;
@@ -117,45 +128,44 @@
             fill: var(--olive-color);
         }
 
+        .custom-icon {
+            width: 32px;
+            height: 32px;
+            margin-bottom: 10px;
+            object-fit: contain;
+        }
+
         .footer-quote {
             font-family: 'Amiri', serif;
-            font-size: 24px;
+            font-size: 22px;
             color: var(--olive-color);
             margin: 25px 0;
         }
 
-        .inviter {
-            color: var(--brown-color);
-            font-weight: bold;
-            font-size: 18px;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
-
         .guest-info-box { 
-            background-color: rgba(255, 255, 255, 0.7); 
+            background-color: rgba(255, 255, 255, 0.75); 
             padding: 15px; 
-            border-radius: 10px; 
+            border-radius: 12px; 
             border: 1px dashed var(--olive-color);
             margin-bottom: 25px; 
             color: var(--olive-color);
             font-weight: bold;
-            font-size: 17px;
+            font-size: 16px;
             line-height: 1.8;
         }
 
         .btn-group { 
             display: flex; 
-            gap: 15px; 
+            gap: 12px; 
             justify-content: center; 
         }
 
         .btn { 
             flex: 1;
-            padding: 12px; 
+            padding: 13px; 
             border: 2px solid var(--olive-color); 
             border-radius: 10px; 
-            font-size: 16px; 
+            font-size: 15px; 
             cursor: pointer; 
             background: white; 
             color: var(--olive-color); 
@@ -178,51 +188,60 @@
             background-color: var(--brown-color);
             color: white;
         }
+
+        .date-text {
+            white-space: pre-line;
+        }
     </style>
 </head>
 <body>
-    <div class="card">
+    <div class="card {{ if .Settings.BackgroundURL }}has-bg{{ end }}"
+         {{ if .Settings.BackgroundURL }}style="background-image: linear-gradient(rgba(252,251,248,0.85), rgba(252,251,248,0.9)), url('{{ .Settings.BackgroundURL }}');"{{ end }}>
         
-        <h1 class="title-text">دعوة</h1>
+        {{ if .Settings.LogoURL }}
+            <img src="{{ .Settings.LogoURL }}" class="logo-img" alt="Logo">
+        {{ end }}
+
+        <h1 class="title-text">{{ .Settings.EventTitle }}</h1>
         
         <div class="subtitle">
-            بكل الود والمحبة والتقدير<br>
-            نتشرف بدعوتكم لحضور حفل زفاف
+            {{ .Settings.EventSubtitle }}
         </div>
 
+        {{ if or .Settings.Person1 .Settings.Person2 }}
         <div class="names">
-            <div>عبدالله</div>
-            <div class="ornament">و</div>
-            <div>عائشة</div>
+            {{ if .Settings.Person1 }}<div>{{ .Settings.Person1 }}</div>{{ end }}
+            {{ if and .Settings.Person1 .Settings.Person2 }}<div class="ornament">و</div>{{ end }}
+            {{ if .Settings.Person2 }}<div>{{ .Settings.Person2 }}</div>{{ end }}
         </div>
+        {{ end }}
 
         <div class="details-grid">
-            <!-- تفاصيل المكان (تحول إلى رابط قابل للضغط) -->
-            <!-- ضع رابط خرائط جوجل الصحيح مكان: https://maps.google.com/?q=شارع+الجامعة -->
-            <a href="https://maps.google.com/?q=شارع+الجامعة" target="_blank" class="location-link" title="اضغط لفتح الموقع على الخريطة">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                <span>قاعة فرح</span>
-                <span>شارع الجامعة</span>
+            <a href="{{ .Settings.MapsURL }}" target="_blank" class="location-link" title="افتح الموقع">
+                {{ if .Settings.IconLocationURL }}
+                    <img src="{{ .Settings.IconLocationURL }}" class="custom-icon" alt="موقع">
+                {{ else }}
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                {{ end }}
+                <span>{{ .Settings.LocationName }}</span>
+                <span>{{ .Settings.LocationAddress }}</span>
             </a>
             
-            <div class="divider"></div>
+            <div class="divider">|</div>
             
-            <!-- تفاصيل التاريخ -->
             <div>
-                <svg class="icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zm-7 5h5v5h-5z"/></svg>
-                <span>يوم الجمعة</span>
-                <span>١٩ - ٠٥ - ١٤٤٣ هـ</span>
+                {{ if .Settings.IconDateURL }}
+                    <img src="{{ .Settings.IconDateURL }}" class="custom-icon" alt="تاريخ">
+                {{ else }}
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zm-7 5h5v5h-5z"/></svg>
+                {{ end }}
+                <span class="date-text">{{ .Settings.DateText }}</span>
             </div>
         </div>
 
         <div class="footer-quote">
-            وبحضوركم يتم لنا الفرح والسرور
+            {{ .Settings.FooterQuote }}
         </div>
-
-      <!--  <div class="inviter">
-            الداعية<br>
-            أم العروس وبناتها
-        </div>-->
 
         <div class="guest-info-box">
             حياك الله يا : {{ .Name }}<br>
@@ -251,9 +270,9 @@
             } else {
                 document.querySelector('.card').innerHTML = `
                     <div style="padding: 40px 20px;">
-                        <h2 style="color: var(--brown-color); margin-bottom: 20px; font-family: 'Amiri', serif; font-size: 30px;">تم تسجيل اعتذارك 🌸</h2>
-                        <p style="font-size: 18px; color: var(--olive-color); line-height: 1.8; font-weight: bold;">
-                            مقدرين ظروفك، ونتمنى أن تشاركنا أفراحنا في مناسبات قادمة بإذن الله.<br>شكراً لك.
+                        <h2 style="color: var(--brown-color); margin-bottom: 20px; font-family: 'Amiri', serif; font-size: 28px;">تم تسجيل اعتذارك 🌸</h2>
+                        <p style="font-size: 17px; color: var(--olive-color); line-height: 1.8; font-weight: bold;">
+                            مقدرين ظروفك، ونتمنى أن تشاركنا في مناسبات قادمة بإذن الله.<br>شكراً لك.
                         </p>
                     </div>
                 `;

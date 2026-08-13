@@ -4,43 +4,156 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>بطاقة الدخول</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f9f8f3; padding: 20px; display: flex; justify-content: center; }
-        .ticket { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; width: 100%; position: relative; }
-        .header { display: flex; justify-content: space-between; border-bottom: 2px dashed #ddd; padding-bottom: 15px; margin-bottom: 15px; }
-        .info { margin-bottom: 20px; line-height: 1.8; }
-        .qr-section { text-align: center; }
-        .qr-section img { max-width: 200px; }
-        .print-btn { display: block; width: 100%; padding: 15px; background-color: #1b4332; color: white; text-align: center; border: none; border-radius: 10px; font-size: 16px; margin-top: 20px; cursor: pointer; }
-        @media print { .print-btn { display: none; } body { background-color: white; } .ticket { box-shadow: none; border: 1px solid #ccc; } }
+        :root {
+            --primary: {{ .Settings.PrimaryColor }};
+            --secondary: {{ .Settings.SecondaryColor }};
+        }
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background: linear-gradient(135deg, #f8f5f0 0%, #e9e4d9 100%);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .ticket {
+            background: white;
+            padding: 30px 25px;
+            border-radius: 24px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px dashed #e0e0e0;
+            padding-bottom: 18px;
+            margin-bottom: 20px;
+        }
+        .event-title {
+            font-family: 'Amiri', serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        .ticket-id {
+            text-align: left;
+            color: #7f8c8d;
+            font-size: 13px;
+        }
+        .ticket-id strong {
+            display: block;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        .info {
+            margin-bottom: 25px;
+            line-height: 2;
+            font-size: 16px;
+            color: #333;
+        }
+        .info strong { color: #555; }
+        .qr-section {
+            text-align: center;
+            margin: 25px 0;
+        }
+        .qr-section img {
+            max-width: 200px;
+            border-radius: 12px;
+        }
+        .badge {
+            background: #f1c40f;
+            color: #333;
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .location-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 13px;
+            background: #f8f5f0;
+            border: 1.5px solid var(--primary);
+            border-radius: 12px;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 15px;
+            text-decoration: none;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+        .location-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+        .print-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #1b4332;
+            color: white;
+            text-align: center;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Tajawal', sans-serif;
+        }
+        @media print {
+            .print-btn, .location-btn { display: none; }
+            body { background: white; }
+            .ticket { box-shadow: none; border: 1px solid #ccc; }
+        }
     </style>
 </head>
 <body>
     <div class="ticket">
-        <div style="text-align: center; margin-bottom: 10px; color: #7f8c8d;">بطاقة دخول</div>
+        <div style="text-align: center; margin-bottom: 8px; color: #7f8c8d; font-size: 14px;">بطاقة دخول</div>
+        
         <div class="header">
             <div>
-                <strong>المناسبة</strong><br>
-                <span style="font-size: 20px; font-weight: bold;">زواج عبدالله و عائشة</span>
+                <div style="color: #7f8c8d; font-size: 13px;">المناسبة</div>
+                <div class="event-title">{{ .Settings.EventTitle }}</div>
+                <div style="font-size: 14px; color: #666; margin-top: 4px;">
+                    {{ .Settings.Person1 }} {{ if .Settings.Person2 }}و {{ .Settings.Person2 }}{{ end }}
+                </div>
             </div>
-            <div style="text-align: left;">
-                <span style="color: #7f8c8d;">رقم البطاقة</span><br>
+            <div class="ticket-id">
+                <span>رقم البطاقة</span>
                 <strong>#{{ .ID }}</strong>
             </div>
         </div>
 
         <div class="info">
-            <strong>الاسم:</strong> {{ .Name }}<br>
-            <strong>الجوال:</strong> {{ .Phone }}<br>
-            <strong>عدد المرافقين:</strong> {{ .Companions }}
+            <div><strong>الاسم:</strong> {{ .Name }}</div>
+            <div><strong>الجوال:</strong> {{ .Phone }}</div>
+            <div><strong>عدد المرافقين:</strong> {{ .Companions }}</div>
         </div>
 
+        <!-- زرار الموقع -->
+        <a href="{{ .Settings.MapsURL }}" target="_blank" class="location-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            {{ .Settings.LocationName }} - {{ .Settings.LocationAddress }}
+        </a>
+
         <div class="qr-section">
-            <div style="background-color: #f1c40f; display: inline-block; padding: 5px 15px; border-radius: 10px; margin-bottom: 10px; font-size: 12px; font-weight: bold;">
-                يمكن تحميل بطاقة الدخول وحفظها على الجوال
-            </div>
+            <div class="badge">يمكن تحميل بطاقة الدخول وحفظها على الجوال</div>
             <img src="{{ .QRImageURL }}" alt="QR Code">
-            <p style="color: #7f8c8d; font-size: 12px;">أظهر هذا الكود عند الدخول</p>
+            <p style="color: #7f8c8d; font-size: 13px; margin-top: 10px;">أظهر هذا الكود عند الدخول</p>
         </div>
 
         <button class="print-btn" onclick="window.print()">تحميل البطاقة 📲</button>

@@ -209,21 +209,37 @@
         </div>
 
         <!-- قسم الإرسال الجماعي (يظهر عندما يكون الحساب متصلاً بنجاح) -->
-        <div id="msgSection" style="display:none; text-align:right;">
-            <p style="font-size: 13px; color: #28a745; font-weight: bold; text-align: center;">✅ الحساب متصل وجاهز للإرسال</p>
-            
-            <p style="font-size: 12px; color: #666;">يمكنك استخدام الكلمة <b>{name}</b> ليتم استبدالها تلقائياً باسم كل مدعو. سيتم إرفاق رابط الدخول وتأكيد الحضور أسفل كل رسالة.</p>
-            
-            <label style="display:block; margin-bottom:8px; font-weight:bold;">نص الرسالة:</label>
-            <textarea id="broadcastMsg" rows="5" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="أهلاً {name}، نتشرف بدعوتك لحضور حفل زفافنا..."></textarea>
-            
-            <div style="margin-top: 15px; display:flex; gap:10px; justify-content:flex-end;">
-                <button class="btn btn-secondary" onclick="closeBroadcastModal()">إلغاء</button>
-                <button class="btn btn-primary" style="background-color: #25D366; border:none;" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال الآن</button>
-            </div>
-        </div>
+<!-- قسم الإرسال الجماعي -->
+<div id="msgSection" style="display:none; text-align:right;">
+    <p style="font-size: 13px; color: #28a745; font-weight: bold; text-align: center;">✅ الحساب متصل وجاهز للإرسال</p>
+    
+    <p style="font-size: 12px; color: #666;">
+        يمكنك استخدام الكلمة <b>{name}</b> ليتم استبدالها تلقائياً باسم كل مدعو.
+        سيتم إرفاق رابط الدخول وتأكيد الحضور أسفل كل رسالة.
+    </p>
+    
+    <label style="display:block; margin-bottom:8px; font-weight:bold;">نص الرسالة:</label>
+    <textarea id="broadcastMsg" rows="5" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" 
+        placeholder="أهلاً {name}، نتشرف بدعوتك لحضور حفل زفافنا..."></textarea>
 
-        <!-- زر الإغلاق لجهة الباركود -->
+    <!-- رفع ملف (صورة أو PDF) -->
+    <label style="display:block; margin:15px 0 8px; font-weight:bold;">مرفق (صورة أو PDF) - اختياري:</label>
+    <input type="file" id="broadcastMedia" accept="image/*,.pdf" 
+        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; box-sizing:border-box;">
+    <p style="font-size:11px; color:#888; margin-top:5px;">يفضل صورة بحجم أقل من 3 ميجا أو ملف PDF</p>
+    
+    <div style="margin-top: 15px; display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeBroadcastModal()">إلغاء</button>
+        <button class="btn btn-primary" style="background-color: #25D366; border:none;" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال الآن</button>
+    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; text-align: center;">
+    <button class="btn btn-danger" style="width: 100%; padding: 10px;" onclick="logoutWhatsApp()">
+        🔌 فصل الحساب الحالي (تغيير الحساب)
+    </button>
+    <p style="font-size: 11px; color: #888; margin-top: 8px;">
+        استخدم هذا الزر لو عايز تربط حساب واتساب مختلف
+    </p>
+    </div>
+</div>        <!-- زر الإغلاق لجهة الباركود -->
         <div id="closeQrBtnContainer" style="margin-top: 15px; display:none; text-align:center;">
             <button class="btn btn-secondary" style="width: 100%;" onclick="closeBroadcastModal()">إغلاق النافذة</button>
         </div>
@@ -231,6 +247,33 @@
 </div>
 
 <script>
+    function logoutWhatsApp() {
+    if (!confirm("هل أنت متأكد من فصل حساب الواتساب الحالي؟\nهتحتاج تمسح QR جديد بحساب تاني.")) {
+        return;
+    }
+
+    fetch('/admin/api/whatsapp-logout', {
+        method: 'POST'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            alert("خطأ: " + data.error);
+        } else {
+            alert(data.message || "تم فصل الحساب بنجاح");
+            // نعيد فحص الحالة عشان يظهر الـ QR الجديد
+            checkWhatsAppStatus();
+            // نرجع نبدأ الـ interval لو كان واقف
+            if (!qrInterval) {
+                qrInterval = setInterval(checkWhatsAppStatus, 3000);
+            }
+        }
+    })
+    .catch(err => {
+        alert("حدث خطأ أثناء فصل الحساب");
+        console.error(err);
+    });
+}
 // متغير خاص بالواتساب
 let qrInterval = null;
 
@@ -476,28 +519,38 @@ function sendBroadcast() {
     btn.innerText = "جاري الإرسال...";
     btn.disabled = true;
 
+    const formData = new FormData();
+    formData.append('message_text', msgText);
+
+    // إضافة الملف لو موجود
+    const mediaInput = document.getElementById('broadcastMedia');
+    if (mediaInput.files && mediaInput.files[0]) {
+        formData.append('media', mediaInput.files[0]);
+    }
+
     fetch('/admin/api/broadcast-whatsapp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message_text: msgText })
+        body: formData   // مهم: مابنش رسل Content-Type يدوي مع FormData
     })
     .then(res => res.json())
     .then(data => {
-        if(data.error) {
+        if (data.error) {
             alert("خطأ: " + data.error);
         } else {
             alert(data.message || "تم الإرسال بنجاح");
             closeBroadcastModal();
             document.getElementById('broadcastMsg').value = '';
+            document.getElementById('broadcastMedia').value = '';
         }
     })
     .catch(err => {
         alert("حدث خطأ أثناء الاتصال بالسيرفر");
+        console.error(err);
     })
     .finally(() => {
         btn.innerText = "🚀 إرسال الآن";
         btn.disabled = false;
-    });
+        });
 }
 </script>
 

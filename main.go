@@ -707,6 +707,7 @@ func main() {
 
 	adminAuth.GET("/admin/api/whatsapp-status", WhatsAppStatusHandler)
 	adminAuth.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler)
+	adminAuth.POST("/admin/api/whatsapp-logout", LogoutWhatsAppHandler)
 
 	// تم إصلاح الـ nesting هنا
 	adminAuth.GET("/scan", func(c *gin.Context) {

@@ -259,16 +259,17 @@ func PrintReport(c *gin.Context) {
 	var guests []Guest
 	var title string
 
-	if status == "confirmed" {
+	switch status {
+case "confirmed":
 		DB.Where("status = ?", "confirmed").Find(&guests)
 		title = "قائمة مؤكدي الحضور"
-	} else if status == "declined" {
+	case "declined":
 		DB.Where("status = ?", "declined").Find(&guests)
 		title = "قائمة المعتذرين عن الحضور"
-	} else if status == "all" {
+	case "all":
 		DB.Find(&guests) // جلب جميع المدعوين
 		title = "قائمة جميع المدعوين"
-	} else {
+	default:
 		c.String(http.StatusBadRequest, "طلب غير صالح")
 		return
 	}
@@ -646,6 +647,7 @@ func ImportGuestsExcel(c *gin.Context) {
 func main() {
 	ConnectDB()
 
+    InitWhatsApp()
 	r := gin.Default()
 
 	// دالة مساعدة لتنسيق التاريخ داخل الـ HTML
@@ -683,36 +685,36 @@ func main() {
 	// =====================================
 	// المسارات المحمية (بكلمة مرور للأدمن)
 	// =====================================
+
 	adminAuth := r.Group("/", gin.BasicAuth(gin.Accounts{
-		"Yaaser Badr": "Yasser.12#", // اسم المستخدم والباسورد كما طلبت
-	}))
-	{
-		adminAuth.GET("/admin/dashboard", RenderDashboard)
-		adminAuth.GET("/admin/add", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "add_guest.html", gin.H{})
-		})
-		//adminAuth.GET("/verify/:token", RenderVerifyPage)
-		
-		// مسارات التحديثات الجديدة
-		adminAuth.GET("/admin/print/:status", PrintReport)
-		adminAuth.DELETE("/admin/api/guests/:id", DeleteGuestAdmin)
-		adminAuth.PUT("/admin/api/guests/:id", UpdateGuestAdmin)
+	"Yaaser Badr": "Yasser.12#",
+}))
+{
+	adminAuth.GET("/admin/dashboard", RenderDashboard)
+	adminAuth.GET("/admin/add", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "add_guest.html", gin.H{})
+	})
 
-		adminAuth.GET("/admin/settings", RenderSettingsPage)
-        adminAuth.POST("/admin/settings", UpdateSettings)
-	
-        adminAuth.POST("/admin/api/import-excel", ImportGuestsExcel)
-        adminAuth.POST("/admin/api/guests/bulk-delete", DeleteGuestsBulk)
+	adminAuth.GET("/admin/print/:status", PrintReport)
+	adminAuth.DELETE("/admin/api/guests/:id", DeleteGuestAdmin)
+	adminAuth.PUT("/admin/api/guests/:id", UpdateGuestAdmin)
 
-	    adminAuth.GET("/scan", func(c *gin.Context) {
-		    c.HTML(http.StatusOK, "scanner.html", gin.H{})
-			adminAuth.GET("/api/verify/:token", APIVerify)
-		})
-	    adminAuth.GET("/verify/:token", RenderVerifyPage)
+	adminAuth.GET("/admin/settings", RenderSettingsPage)
+	adminAuth.POST("/admin/settings", UpdateSettings)
 
+	adminAuth.POST("/admin/api/import-excel", ImportGuestsExcel)
+	adminAuth.POST("/admin/api/guests/bulk-delete", DeleteGuestsBulk)
 
-	}
-	
+	adminAuth.GET("/admin/api/whatsapp-status", WhatsAppStatusHandler)
+	adminAuth.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler)
+
+	// تم إصلاح الـ nesting هنا
+	adminAuth.GET("/scan", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "scanner.html", gin.H{})
+	})
+	adminAuth.GET("/api/verify/:token", APIVerify)
+	adminAuth.GET("/verify/:token", RenderVerifyPage)
+}
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "9000"
@@ -720,4 +722,5 @@ func main() {
 	
 	// تشغيل الخادم على جميع واجهات الشبكة
 	r.Run("0.0.0.0:" + port)
+
 }

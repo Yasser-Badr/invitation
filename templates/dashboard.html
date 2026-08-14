@@ -36,6 +36,10 @@
         .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
         .modal input, .modal select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         .modal label { font-weight: bold; font-size: 14px; }
+        
+        /* إضافات تصميم نافذة الباركود الخاصة بالواتساب */
+        .qr-container { margin: 20px 0; display: flex; justify-content: center; }
+        .qr-container img { width: 240px; height: 240px; border: 2px solid #25D366; border-radius: 12px; padding: 10px; background: #fdfdfd; }
     </style>
 </head>
 <body>
@@ -66,6 +70,7 @@
 <!-- أضف زرار الحذف الجماعي فوق الجدول -->
 <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
     <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة جميع المدعوين</a>
+    <button class="btn btn-primary" style="background-color: #25D366; border: none; padding: 10px 18px;" onclick="openBroadcastModal()">💬 إرسال واتساب للجميع</button>
     <button class="btn btn-danger" onclick="deleteSelected()" style="padding: 10px 18px;">🗑️ حذف المحددين</button>
     <button class="btn btn-danger" onclick="deleteAllGuests()" style="padding: 10px 18px; background:#c0392b;">🗑️ حذف الكل</button>
 </div>
@@ -186,8 +191,49 @@
     </div>
 </div>
 
+<!-- نافذة إرسال الواتساب المعدلة -->
+<div id="broadcastModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:9999;">
+    <div class="modal-content" style="background:#fff; padding:25px; border-radius:12px; width:90%; max-width:500px; text-align:center;">
+        <h3 style="color: #25D366; margin-top:0;">إدارة إرسال الواتساب</h3>
+        
+        <!-- قسم الباركود (يظهر عندما يكون السيرفر غير متصل بالواتساب) -->
+        <div id="qrSection" style="display:none; text-align:center;">
+            <p style="color: #d9534f; font-weight: bold;">⚠️ حساب الواتساب غير متصل!</p>
+            <p style="font-size: 13px; color: #555;">افتح تطبيق الواتساب من هاتفك ➔ الأجهزة المرتبطة ➔ قم بمسح الـ QR Code التالي:</p>
+            
+            <div class="qr-container">
+                <img id="waQRCode" src="" alt="جاري تحميل كود الـ QR...">
+            </div>
+            
+            <p style="font-size: 11px; color: #888;">(يتحدث الكود تلقائياً. سيتم تحويلك لصفحة الإرسال فور مسح الكود بنجاح)</p>
+        </div>
+
+        <!-- قسم الإرسال الجماعي (يظهر عندما يكون الحساب متصلاً بنجاح) -->
+        <div id="msgSection" style="display:none; text-align:right;">
+            <p style="font-size: 13px; color: #28a745; font-weight: bold; text-align: center;">✅ الحساب متصل وجاهز للإرسال</p>
+            
+            <p style="font-size: 12px; color: #666;">يمكنك استخدام الكلمة <b>{name}</b> ليتم استبدالها تلقائياً باسم كل مدعو. سيتم إرفاق رابط الدخول وتأكيد الحضور أسفل كل رسالة.</p>
+            
+            <label style="display:block; margin-bottom:8px; font-weight:bold;">نص الرسالة:</label>
+            <textarea id="broadcastMsg" rows="5" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" placeholder="أهلاً {name}، نتشرف بدعوتك لحضور حفل زفافنا..."></textarea>
+            
+            <div style="margin-top: 15px; display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="closeBroadcastModal()">إلغاء</button>
+                <button class="btn btn-primary" style="background-color: #25D366; border:none;" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال الآن</button>
+            </div>
+        </div>
+
+        <!-- زر الإغلاق لجهة الباركود -->
+        <div id="closeQrBtnContainer" style="margin-top: 15px; display:none; text-align:center;">
+            <button class="btn btn-secondary" style="width: 100%;" onclick="closeBroadcastModal()">إغلاق النافذة</button>
+        </div>
+    </div>
+</div>
 
 <script>
+// متغير خاص بالواتساب
+let qrInterval = null;
+
 function uploadExcel(input) {
     if (!input.files || !input.files[0]) return;
 
@@ -329,6 +375,131 @@ function deleteAllGuests() {
     })
     .catch(err => alert("حدث خطأ أثناء الحذف"));
 }
+
+// === وظائف الواتساب الجديدة ===
+function openBroadcastModal() {
+    document.getElementById('broadcastModal').style.display = 'flex';
+    checkWhatsAppStatus();
+    // فحص حالة الاتصال وتحديث الـ QR كل 3 ثوانٍ
+    qrInterval = setInterval(checkWhatsAppStatus, 3000);
+}
+
+function closeBroadcastModal() {
+    document.getElementById('broadcastModal').style.display = 'none';
+    if (qrInterval) {
+        clearInterval(qrInterval);
+        qrInterval = null;
+    }
+}
+/*function checkWhatsAppStatus() {
+    fetch('/admin/api/whatsapp-status')
+        .then(res => res.json())
+        .then(data => {
+            const qrSection = document.getElementById('qrSection');
+            const msgSection = document.getElementById('msgSection');
+            const closeQrBtnContainer = document.getElementById('closeQrBtnContainer');
+            const qrImage = document.getElementById('waQRCode');
+
+            if (data.connected) {
+                // الحساب متصل
+                qrSection.style.display = 'none';
+                closeQrBtnContainer.style.display = 'none';
+                msgSection.style.display = 'block';
+                
+                if (qrInterval) {
+                    clearInterval(qrInterval);
+                    qrInterval = null;
+                }
+            } else {
+                // الحساب غير متصل
+                msgSection.style.display = 'none';
+                qrSection.style.display = 'block';
+                closeQrBtnContainer.style.display = 'block';
+
+                if (data.qr) {
+                    qrImage.src = data.qr;
+                }
+            }
+        })
+        .catch(err => console.error("خطأ أثناء جلب حالة الواتساب:", err));
+} */
+function checkWhatsAppStatus() {
+    fetch('/admin/api/whatsapp-status')
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('فشل الاتصال بمسار الحالة (HTTP status ' + res.status + ')');
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log("حالة الواتساب المستلمة:", data);
+
+            const qrSection = document.getElementById('qrSection');
+            const msgSection = document.getElementById('msgSection');
+            const closeQrBtnContainer = document.getElementById('closeQrBtnContainer');
+            const qrImage = document.getElementById('waQRCode');
+
+            if (data.connected) {
+                qrSection.style.display = 'none';
+                closeQrBtnContainer.style.display = 'none';
+                msgSection.style.display = 'block';
+
+                if (qrInterval) {
+                    clearInterval(qrInterval);
+                    qrInterval = null;
+                }
+            } else {
+                msgSection.style.display = 'none';
+                qrSection.style.display = 'block';
+                closeQrBtnContainer.style.display = 'block';
+
+                if (data.qr && data.qr !== "") {
+                    qrImage.src = data.qr;
+                    qrImage.alt = "امسح هذا الكود بواتساب";
+                } else {
+                    qrImage.src = "";
+                    qrImage.alt = "جاري تحميل كود الـ QR...";
+                }
+            }
+        })
+        .catch(err => console.error("خطأ في فحص حالة الواتساب:", err));
+}
+
+function sendBroadcast() {
+    const msgText = document.getElementById('broadcastMsg').value;
+    if (!msgText.trim()) {
+        alert("يرجى كتابة نص الرسالة أولاً");
+        return;
+    }
+
+    const btn = document.getElementById('sendBtn');
+    btn.innerText = "جاري الإرسال...";
+    btn.disabled = true;
+
+    fetch('/admin/api/broadcast-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_text: msgText })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.error) {
+            alert("خطأ: " + data.error);
+        } else {
+            alert(data.message || "تم الإرسال بنجاح");
+            closeBroadcastModal();
+            document.getElementById('broadcastMsg').value = '';
+        }
+    })
+    .catch(err => {
+        alert("حدث خطأ أثناء الاتصال بالسيرفر");
+    })
+    .finally(() => {
+        btn.innerText = "🚀 إرسال الآن";
+        btn.disabled = false;
+    });
+}
 </script>
+
 </body>
 </html>

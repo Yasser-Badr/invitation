@@ -14,6 +14,9 @@ import (
 	"github.com/skip2/go-qrcode"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"strconv"
+    "strings"
+    "github.com/xuri/excelize/v2"
 )
 
 type Guest struct {
@@ -436,58 +439,208 @@ func UpdateSettings(c *gin.Context) {
 	settings.SecondaryColor = c.PostForm("secondary_color")
 
 	// رفع الصور
-	os.MkdirAll("./public/uploads", os.ModePerm)
+// رفع الصور + حذف القديمة
+os.MkdirAll("./public/uploads", os.ModePerm)
 
-	// Logo
-	file, err := c.FormFile("logo")
-	if err == nil {
-		filename := "logo_" + uuid.New().String() + filepath.Ext(file.Filename)
-		path := "./public/uploads/" + filename
-		c.SaveUploadedFile(file, path)
-		settings.LogoURL = "/public/uploads/" + filename
+// Logo
+file, err := c.FormFile("logo")
+if err == nil {
+	// حذف الصورة القديمة لو موجودة
+	if settings.LogoURL != "" {
+		os.Remove("." + settings.LogoURL)
 	}
+	filename := "logo_" + uuid.New().String() + filepath.Ext(file.Filename)
+	path := "./public/uploads/" + filename
+	c.SaveUploadedFile(file, path)
+	settings.LogoURL = "/public/uploads/" + filename
+}
 
-	// Background
-	file, err = c.FormFile("background")
-	if err == nil {
-		filename := "bg_" + uuid.New().String() + filepath.Ext(file.Filename)
-		path := "./public/uploads/" + filename
-		c.SaveUploadedFile(file, path)
-		settings.BackgroundURL = "/public/uploads/" + filename
+// Background
+file, err = c.FormFile("background")
+if err == nil {
+	if settings.BackgroundURL != "" {
+		os.Remove("." + settings.BackgroundURL)
 	}
+	filename := "bg_" + uuid.New().String() + filepath.Ext(file.Filename)
+	path := "./public/uploads/" + filename
+	c.SaveUploadedFile(file, path)
+	settings.BackgroundURL = "/public/uploads/" + filename
+}
 
-	// Icon Location
-	file, err = c.FormFile("icon_location")
-	if err == nil {
-		filename := "icon_loc_" + uuid.New().String() + filepath.Ext(file.Filename)
-		path := "./public/uploads/" + filename
-		c.SaveUploadedFile(file, path)
-		settings.IconLocationURL = "/public/uploads/" + filename
+// Icon Location
+file, err = c.FormFile("icon_location")
+if err == nil {
+	if settings.IconLocationURL != "" {
+		os.Remove("." + settings.IconLocationURL)
 	}
+	filename := "icon_loc_" + uuid.New().String() + filepath.Ext(file.Filename)
+	path := "./public/uploads/" + filename
+	c.SaveUploadedFile(file, path)
+	settings.IconLocationURL = "/public/uploads/" + filename
+}
 
-	// Icon Date
-	file, err = c.FormFile("icon_date")
-	if err == nil {
-		filename := "icon_date_" + uuid.New().String() + filepath.Ext(file.Filename)
-		path := "./public/uploads/" + filename
-		c.SaveUploadedFile(file, path)
-		settings.IconDateURL = "/public/uploads/" + filename
+// Icon Date
+file, err = c.FormFile("icon_date")
+if err == nil {
+	if settings.IconDateURL != "" {
+		os.Remove("." + settings.IconDateURL)
 	}
-// حذف الصور إذا تم اختيار الحذف
+	filename := "icon_date_" + uuid.New().String() + filepath.Ext(file.Filename)
+	path := "./public/uploads/" + filename
+	c.SaveUploadedFile(file, path)
+	settings.IconDateURL = "/public/uploads/" + filename
+}
+
+// حذف الصور عند اختيار الـ checkbox
 if c.PostForm("remove_logo") == "1" {
+	if settings.LogoURL != "" {
+		os.Remove("." + settings.LogoURL)
+	}
 	settings.LogoURL = ""
 }
 if c.PostForm("remove_background") == "1" {
+	if settings.BackgroundURL != "" {
+		os.Remove("." + settings.BackgroundURL)
+	}
 	settings.BackgroundURL = ""
 }
 if c.PostForm("remove_icon_location") == "1" {
+	if settings.IconLocationURL != "" {
+		os.Remove("." + settings.IconLocationURL)
+	}
 	settings.IconLocationURL = ""
 }
 if c.PostForm("remove_icon_date") == "1" {
+	if settings.IconDateURL != "" {
+		os.Remove("." + settings.IconDateURL)
+	}
 	settings.IconDateURL = ""
 }
 	DB.Save(&settings)
 	c.Redirect(http.StatusFound, "/admin/settings?success=1")
+}
+func DeleteGuestsBulk(c *gin.Context) {
+	var input struct {
+		IDs []uint `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "بيانات غير صالحة"})
+		return
+	}
+
+	if len(input.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "لم يتم تحديد أي مدعو"})
+		return
+	}
+
+	// حذف صور الـ QR لو موجودة
+	var guests []Guest
+	DB.Unscoped().Where("id IN ?", input.IDs).Find(&guests)
+	for _, g := range guests {
+		if g.QRImageURL != "" {
+			os.Remove("." + g.QRImageURL)
+		}
+	}
+
+	// حذف نهائي
+	if err := DB.Unscoped().Where("id IN ?", input.IDs).Delete(&Guest{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل الحذف"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "تم حذف المدعوين المحددين بنجاح"})
+}
+
+func ImportGuestsExcel(c *gin.Context) {
+	file, err := c.FormFile("excel")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب رفع ملف Excel"})
+		return
+	}
+
+	tempPath := "./temp_import.xlsx"
+	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل حفظ الملف"})
+		return
+	}
+	defer os.Remove(tempPath)
+
+	f, err := excelize.OpenFile(tempPath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "الملف غير صالح أو تالف"})
+		return
+	}
+	defer f.Close()
+
+	// نجيب أول شيت موجود تلقائياً
+	sheetName := f.GetSheetName(0)
+	if sheetName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يوجد شيت في الملف"})
+		return
+	}
+
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "فشل قراءة البيانات من الملف"})
+		return
+	}
+
+	if len(rows) < 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "الملف فاضي أو يحتوي على عناوين فقط"})
+		return
+	}
+
+	successCount := 0
+	failCount := 0
+	var errorsList []string
+
+	for i, row := range rows {
+		if i == 0 {
+			continue // تخطي صف العناوين
+		}
+
+		if len(row) < 2 {
+			failCount++
+			continue
+		}
+
+		name := strings.TrimSpace(row[0])
+		phone := strings.TrimSpace(row[1])
+		companions := 0
+
+		if len(row) >= 3 {
+			companions, _ = strconv.Atoi(strings.TrimSpace(row[2]))
+		}
+
+		if name == "" || phone == "" {
+			failCount++
+			errorsList = append(errorsList, "صف "+strconv.Itoa(i+1)+" ناقص بيانات")
+			continue
+		}
+
+		guestToken := uuid.New().String()
+		newGuest := Guest{
+			Name:       name,
+			Phone:      phone,
+			Companions: companions,
+			Token:      guestToken,
+			Status:     "pending",
+		}
+
+		if err := DB.Create(&newGuest).Error; err != nil {
+			failCount++
+			errorsList = append(errorsList, phone+" مسجل مسبقاً")
+			continue
+		}
+		successCount++
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "تم الاستيراد",
+		"success_count": successCount,
+		"fail_count":    failCount,
+		"errors":        errorsList,
+	})
 }
 
 func main() {
@@ -548,6 +701,9 @@ func main() {
 		adminAuth.GET("/admin/settings", RenderSettingsPage)
         adminAuth.POST("/admin/settings", UpdateSettings)
 	
+        adminAuth.POST("/admin/api/import-excel", ImportGuestsExcel)
+        adminAuth.POST("/admin/api/guests/bulk-delete", DeleteGuestsBulk)
+
 	    adminAuth.GET("/scan", func(c *gin.Context) {
 		    c.HTML(http.StatusOK, "scanner.html", gin.H{})
 			adminAuth.GET("/api/verify/:token", APIVerify)

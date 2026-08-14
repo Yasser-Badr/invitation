@@ -43,6 +43,10 @@
 <div class="container">
     <div class="header-actions">
         <h2>لوحة الإدارة والإحصائيات</h2>
+        <button class="btn btn-primary" style="background-color:#16a085;" onclick="document.getElementById('excelInput').click()">
+    📥 استيراد من Excel
+</button>
+<input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="uploadExcel(this)">
         <div>
             <a href="/admin/add" class="btn btn-primary">➕ إضافة مدعو جديد</a>
             <a href="/scan" class="btn btn-primary" style="background-color: #27ae60;" target="_blank">📷 فحص الباركود</a>
@@ -59,56 +63,62 @@
 
     <!-- تبويب: جميع المدعوين -->
     <div id="all" class="tab-content active">
-        <h2>جميع المدعوين المسجلين</h2>
-        <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة جميع المدعوين</a>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>م</th>
-                    <th>الاسم</th>
-                    <th>الهاتف</th>
-                    <th>المرافقين</th>
-                    <th>الحالة</th>
-                    <th>الدخول</th>
-                    <th>إجراءات</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{ range .AllGuests }}
-                <tr>
-                    <td>{{ .ID }}</td>
-                    <td>{{ .Name }}</td>
-                    <td>{{ .Phone }}</td>
-                    <td>{{ .Companions }}</td>
-                    <td>
-                        {{ if eq .Status "pending" }}<span class="status status-pending">قيد الانتظار</span>{{ end }}
-                        {{ if eq .Status "confirmed" }}<span class="status status-confirmed">مؤكد</span>{{ end }}
-                        {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
-                    </td>
-                    <td>
-                        {{ if .CheckedIn }}
-                            <span class="status status-confirmed">تم الدخول</span>
-                        {{ else }}
-                            <span class="status status-pending">لم يدخل</span>
-                        {{ end }}
-                    </td>
-                    <td>
-                        <button class="btn btn-edit" 
-                            data-id="{{.ID}}" 
-                            data-name="{{.Name}}" 
-                            data-phone="{{.Phone}}" 
-                            data-companions="{{.Companions}}" 
-                            data-checked="{{.CheckedIn}}"
-                            onclick="openEditModalFromBtn(this)">تعديل</button>
-                        <button class="btn btn-danger" onclick="deleteGuest('{{.ID}}')">حذف</button>
-                    </td>
-                </tr>
+<!-- أضف زرار الحذف الجماعي فوق الجدول -->
+<div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة جميع المدعوين</a>
+    <button class="btn btn-danger" onclick="deleteSelected()" style="padding: 10px 18px;">🗑️ حذف المحددين</button>
+    <button class="btn btn-danger" onclick="deleteAllGuests()" style="padding: 10px 18px; background:#c0392b;">🗑️ حذف الكل</button>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
+            <th>م</th>
+            <th>الاسم</th>
+            <th>الهاتف</th>
+            <th>المرافقين</th>
+            <th>الحالة</th>
+            <th>الدخول</th>
+            <th>إجراءات</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .AllGuests }}
+        <tr>
+            <td><input type="checkbox" class="guest-checkbox" value="{{.ID}}"></td>
+            <td>{{ .ID }}</td>
+            <td>{{ .Name }}</td>
+            <td>{{ .Phone }}</td>
+            <td>{{ .Companions }}</td>
+            <td>
+                {{ if eq .Status "pending" }}<span class="status status-pending">قيد الانتظار</span>{{ end }}
+                {{ if eq .Status "confirmed" }}<span class="status status-confirmed">مؤكد</span>{{ end }}
+                {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
+            </td>
+            <td>
+                {{ if .CheckedIn }}
+                    <span class="status status-confirmed">تم الدخول</span>
                 {{ else }}
-                <tr><td colspan="7">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
+                    <span class="status status-pending">لم يدخل</span>
                 {{ end }}
-            </tbody>
-        </table>
+            </td>
+            <td>
+                <button class="btn btn-edit" 
+                    data-id="{{.ID}}" 
+                    data-name="{{.Name}}" 
+                    data-phone="{{.Phone}}" 
+                    data-companions="{{.Companions}}" 
+                    data-checked="{{.CheckedIn}}"
+                    onclick="openEditModalFromBtn(this)">تعديل</button>
+                <button class="btn btn-danger" onclick="deleteGuest('{{.ID}}')">حذف</button>
+            </td>
+        </tr>
+        {{ else }}
+        <tr><td colspan="8">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
+        {{ end }}
+    </tbody>
+</table>
     </div>
 
     <!-- تبويب: المؤكدين -->
@@ -176,8 +186,42 @@
     </div>
 </div>
 
+
 <script>
-    function openTab(tabId) {
+function uploadExcel(input) {
+    if (!input.files || !input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('excel', input.files[0]);
+
+    fetch('/admin/api/import-excel', {
+        method: 'POST',
+        body: formData
+    })
+    .then(async res => {
+        const data = await res.json();
+        
+        if (!res.ok) {
+            alert("خطأ: " + (data.error || "حدث خطأ غير معروف"));
+            return;
+        }
+
+        let msg = `تم بنجاح: ${data.success_count}\nفشل: ${data.fail_count}`;
+        if (data.errors && data.errors.length > 0) {
+            msg += "\n\nتفاصيل الفشل:\n" + data.errors.join("\n");
+        }
+        alert(msg);
+        location.reload();
+    })
+    .catch(err => {
+        alert("حدث خطأ في الاتصال بالسيرفر");
+        console.error(err);
+    });
+    
+    input.value = '';
+}
+
+function openTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
@@ -230,6 +274,61 @@
         .then(data => { alert("تم التعديل بنجاح"); location.reload(); })
         .catch(err => alert("حدث خطأ أثناء التعديل"));
     }
+
+    function toggleSelectAll(source) {
+    document.querySelectorAll('.guest-checkbox').forEach(cb => {
+        cb.checked = source.checked;
+    });
+}
+
+function deleteSelected() {
+    const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert("يجب تحديد مدعو واحد على الأقل");
+        return;
+    }
+
+    if (!confirm(`هل أنت متأكد من حذف ${checkboxes.length} مدعو؟`)) return;
+
+    const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+    fetch('/admin/api/guests/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message || "تم الحذف");
+        location.reload();
+    })
+    .catch(err => alert("حدث خطأ أثناء الحذف"));
+}
+
+function deleteAllGuests() {
+    if (!confirm("تحذير: سيتم حذف جميع المدعوين نهائياً. هل أنت متأكد؟")) return;
+    if (!confirm("تأكيد نهائي: هل تريد حذف الكل؟")) return;
+
+    const allCheckboxes = document.querySelectorAll('.guest-checkbox');
+    const ids = Array.from(allCheckboxes).map(cb => parseInt(cb.value));
+
+    if (ids.length === 0) {
+        alert("لا يوجد مدعوين للحذف");
+        return;
+    }
+
+    fetch('/admin/api/guests/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message || "تم حذف الجميع");
+        location.reload();
+    })
+    .catch(err => alert("حدث خطأ أثناء الحذف"));
+}
 </script>
 </body>
 </html>

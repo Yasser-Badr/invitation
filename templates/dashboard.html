@@ -5,277 +5,585 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة تحكم المنظمين</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; margin: 0; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header-actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); gap: 10px; }
-        .btn { padding: 10px 20px; border-radius: 8px; font-weight: bold; text-decoration: none; color: white; border: none; cursor: pointer; display: inline-block; font-size: 14px; }
-        .btn-primary { background-color: #1b4332; }
-        .btn-secondary { background-color: #f1c40f; color: #333; }
-        .btn-print { background-color: #34495e; color: white; margin-bottom: 15px; }
-        .btn-danger { background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px; }
-        .btn-edit { background-color: #3498db; color: white; padding: 5px 10px; font-size: 12px; margin-left: 5px; }
-        
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; overflow-x: auto; }
-        .tab-btn { padding: 10px 20px; background: #e0e0e0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; white-space: nowrap; }
-        .tab-btn.active { background: #1b4332; color: white; }
-        
-        .tab-content { display: none; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .tab-content.active { display: block; overflow-x: auto; }
-        
-        h2 { color: #2c3e50; margin-top: 0; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
-        th { background-color: #1b4332; color: white; }
-        
-        .status { font-weight: bold; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-        .status-pending { background-color: #f39c12; color: white; }
-        .status-confirmed { background-color: #27ae60; color: white; }
-        .status-declined { background-color: #c0392b; color: white; }
+        :root {
+            --primary: #1b4332;
+            --primary-light: #2d6a4f;
+            --accent: #25D366;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --success: #27ae60;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --text: #2c3e50;
+            --muted: #7f8c8d;
+            --border: #e8ecef;
+            --shadow: 0 4px 20px rgba(0,0,0,0.06);
+            --radius: 12px;
+        }
 
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
-        .modal input, .modal select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        .modal label { font-weight: bold; font-size: 14px; }
-        
-        /* إضافات تصميم نافذة الباركود الخاصة بالواتساب */
-        .qr-container { margin: 20px 0; display: flex; justify-content: center; }
-        .qr-container img { width: 240px; height: 240px; border: 2px solid #25D366; border-radius: 12px; padding: 10px; background: #fdfdfd; }
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, 'Arial', sans-serif;
+            background: var(--bg);
+            margin: 0;
+            padding: 16px;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-card h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+
+        .header-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover { transform: translateY(-1px); opacity: 0.92; }
+        .btn:active { transform: translateY(0); }
+
+        .btn-primary { background: var(--primary); }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-secondary { background: #f1c40f; color: #333; }
+        .btn-success { background: var(--success); }
+        .btn-accent { background: var(--accent); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-print { background: #34495e; }
+        .btn-purple { background: #8e44ad; }
+        .btn-teal { background: #16a085; }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .tab-btn {
+            padding: 10px 18px;
+            background: #e8ecef;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text);
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover { background: #dce1e6; }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Content cards */
+        .tab-content {
+            display: none;
+            background: var(--card);
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .tab-content.active { display: block; }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        h2, h3 {
+            color: var(--primary);
+            margin-top: 0;
+        }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover td { background: #f8faf9; }
+
+        td { font-size: 13px; }
+
+        /* Status badges */
+        .status {
+            display: inline-block;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+        }
+
+        .status-pending { background: #fef3cd; color: #856404; }
+        .status-confirmed { background: #d4edda; color: #155724; }
+        .status-declined { background: #f8d7da; color: #721c24; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 420px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            animation: modalIn 0.25s ease;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-content h3 {
+            margin: 0 0 16px;
+            font-size: 1.15rem;
+        }
+
+        .modal label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+
+        .modal input,
+        .modal select,
+        .modal textarea {
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .modal input:focus,
+        .modal select:focus,
+        .modal textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(27,67,50,0.12);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        /* WhatsApp modal specific */
+        .wa-modal .modal-content {
+            max-width: 480px;
+            text-align: center;
+        }
+
+        .wa-modal h3 {
+            color: var(--accent);
+        }
+
+        .qr-container {
+            margin: 16px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .qr-container img {
+            width: 220px;
+            height: 220px;
+            border: 3px solid var(--accent);
+            border-radius: 14px;
+            padding: 10px;
+            background: #fdfdfd;
+        }
+
+        .wa-hint {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 8px 0;
+        }
+
+        .wa-connected-badge {
+            display: inline-block;
+            background: #d4edda;
+            color: #155724;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .wa-section {
+            text-align: right;
+        }
+
+        .wa-divider {
+            border-top: 1px solid var(--border);
+            margin: 18px 0 14px;
+            padding-top: 14px;
+        }
+
+        /* Empty state */
+        .empty-row td {
+            padding: 28px;
+            color: var(--muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .header-card { padding: 16px; }
+            .header-card h2 { font-size: 1.15rem; }
+            .btn { padding: 9px 14px; font-size: 12px; }
+            .tab-content { padding: 14px; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header-actions">
+    <!-- Header -->
+    <div class="header-card">
         <h2>لوحة الإدارة والإحصائيات</h2>
-        <button class="btn btn-primary" style="background-color:#16a085;" onclick="document.getElementById('excelInput').click()">
-    📥 استيراد من Excel
-</button>
-<input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="uploadExcel(this)">
-        <div>
-            <a href="/admin/add" class="btn btn-primary">➕ إضافة مدعو جديد</a>
-            <a href="/scan" class="btn btn-primary" style="background-color: #27ae60;" target="_blank">📷 فحص الباركود</a>
-            <a href="/admin/settings" class="btn btn-primary" style="background-color: #8e44ad;">⚙️ تعديل بيانات الدعوة</a>
-            <a href="/login" class="btn btn-secondary" target="_blank">🔗 شاشة دخول الضيوف</a>
+        <div class="header-actions">
+            <button class="btn btn-teal" onclick="document.getElementById('excelInput').click()">
+                📥 استيراد Excel
+            </button>
+            <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="uploadExcel(this)">
+            <a href="/admin/add" class="btn btn-primary">➕ إضافة مدعو</a>
+            <a href="/scan" class="btn btn-success" target="_blank">📷 فحص الباركود</a>
+            <a href="/admin/settings" class="btn btn-purple">⚙️ إعدادات الدعوة</a>
+            <a href="/login" class="btn btn-secondary" target="_blank">🔗 دخول الضيوف</a>
         </div>
     </div>
 
+    <!-- Tabs -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab('all')">📋 جميع المدعوين</button>
-        <button class="tab-btn" onclick="openTab('confirmed')">✅ مؤكدي الحضور ({{ len .Confirmed }})</button>
-        <button class="tab-btn" onclick="openTab('declined')">❌ المعتذرين ({{ len .Declined }})</button>
+        <button class="tab-btn active" onclick="openTab('all', this)">📋 جميع المدعوين</button>
+        <button class="tab-btn" onclick="openTab('confirmed', this)">✅ مؤكدي الحضور ({{ len .Confirmed }})</button>
+        <button class="tab-btn" onclick="openTab('declined', this)">❌ المعتذرين ({{ len .Declined }})</button>
     </div>
 
-    <!-- تبويب: جميع المدعوين -->
+    <!-- Tab: All Guests -->
     <div id="all" class="tab-content active">
-<!-- أضف زرار الحذف الجماعي فوق الجدول -->
-<div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-    <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة جميع المدعوين</a>
-    <button class="btn btn-primary" style="background-color: #25D366; border: none; padding: 10px 18px;" onclick="openBroadcastModal()">💬 إرسال واتساب للجميع</button>
-    <button class="btn btn-danger" onclick="deleteSelected()" style="padding: 10px 18px;">🗑️ حذف المحددين</button>
-    <button class="btn btn-danger" onclick="deleteAllGuests()" style="padding: 10px 18px; background:#c0392b;">🗑️ حذف الكل</button>
-</div>
+        <div class="toolbar">
+            <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة الكل</a>
+            <button class="btn btn-accent" onclick="openBroadcastModal()">💬 إرسال واتساب</button>
+            <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف المحددين</button>
+            <button class="btn btn-danger" style="background:#c0392b;" onclick="deleteAllGuests()">🗑️ حذف الكل</button>
+        </div>
 
-<table>
-    <thead>
-        <tr>
-            <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
-            <th>م</th>
-            <th>الاسم</th>
-            <th>الهاتف</th>
-            <th>المرافقين</th>
-            <th>الحالة</th>
-            <th>الدخول</th>
-            <th>إجراءات</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{ range .AllGuests }}
-        <tr>
-            <td><input type="checkbox" class="guest-checkbox" value="{{.ID}}"></td>
-            <td>{{ .ID }}</td>
-            <td>{{ .Name }}</td>
-            <td>{{ .Phone }}</td>
-            <td>{{ .Companions }}</td>
-            <td>
-                {{ if eq .Status "pending" }}<span class="status status-pending">قيد الانتظار</span>{{ end }}
-                {{ if eq .Status "confirmed" }}<span class="status status-confirmed">مؤكد</span>{{ end }}
-                {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
-            </td>
-            <td>
-                {{ if .CheckedIn }}
-                    <span class="status status-confirmed">تم الدخول</span>
-                {{ else }}
-                    <span class="status status-pending">لم يدخل</span>
-                {{ end }}
-            </td>
-            <td>
-                <button class="btn btn-edit" 
-                    data-id="{{.ID}}" 
-                    data-name="{{.Name}}" 
-                    data-phone="{{.Phone}}" 
-                    data-companions="{{.Companions}}" 
-                    data-checked="{{.CheckedIn}}"
-                    onclick="openEditModalFromBtn(this)">تعديل</button>
-                <button class="btn btn-danger" onclick="deleteGuest('{{.ID}}')">حذف</button>
-            </td>
-        </tr>
-        {{ else }}
-        <tr><td colspan="8">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
-        {{ end }}
-    </tbody>
-</table>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
+                        <th>م</th>
+                        <th>الاسم</th>
+                        <th>الهاتف</th>
+                        <th>المرافقين</th>
+                        <th>الحالة</th>
+                        <th>الدخول</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .AllGuests }}
+                    <tr>
+                        <td><input type="checkbox" class="guest-checkbox" value="{{.ID}}"></td>
+                        <td>{{ .ID }}</td>
+                        <td>{{ .Name }}</td>
+                        <td>{{ .Phone }}</td>
+                        <td>{{ .Companions }}</td>
+                        <td>
+                            {{ if eq .Status "pending" }}<span class="status status-pending">قيد الانتظار</span>{{ end }}
+                            {{ if eq .Status "confirmed" }}<span class="status status-confirmed">مؤكد</span>{{ end }}
+                            {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
+                        </td>
+                        <td>
+                            {{ if .CheckedIn }}
+                                <span class="status status-confirmed">تم الدخول</span>
+                            {{ else }}
+                                <span class="status status-pending">لم يدخل</span>
+                            {{ end }}
+                        </td>
+                        <td>
+                            <button class="btn btn-primary btn-sm"
+                                data-id="{{.ID}}"
+                                data-name="{{.Name}}"
+                                data-phone="{{.Phone}}"
+                                data-companions="{{.Companions}}"
+                                data-checked="{{.CheckedIn}}"
+                                onclick="openEditModalFromBtn(this)">تعديل</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteGuest('{{.ID}}')">حذف</button>
+                        </td>
+                    </tr>
+                    {{ else }}
+                    <tr class="empty-row"><td colspan="8">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- تبويب: المؤكدين -->
+    <!-- Tab: Confirmed -->
     <div id="confirmed" class="tab-content">
-        <h2>المدعوون الذين أكدوا الحضور</h2>
-        <a href="/admin/print/confirmed" target="_blank" class="btn btn-print">🖨️ طباعة قائمة المؤكدين</a>
-        <table>
-            <thead>
-                <tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>المرافقين</th><th>تاريخ التأكيد</th></tr>
-            </thead>
-            <tbody>
-                {{ range .Confirmed }}
-                <tr><td>{{ .ID }}</td><td>{{ .Name }}</td><td>{{ .Phone }}</td><td>{{ .Companions }}</td><td>{{ formatDate .UpdatedAt }}</td></tr>
-                {{ else }}
-                <tr><td colspan="5">لا يوجد مدعوين أكدوا الحضور.</td></tr>
-                {{ end }}
-            </tbody>
-        </table>
+        <h3>المدعوون الذين أكدوا الحضور</h3>
+        <div class="toolbar">
+            <a href="/admin/print/confirmed" target="_blank" class="btn btn-print">🖨️ طباعة قائمة المؤكدين</a>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>المرافقين</th><th>تاريخ التأكيد</th></tr>
+                </thead>
+                <tbody>
+                    {{ range .Confirmed }}
+                    <tr>
+                        <td>{{ .ID }}</td>
+                        <td>{{ .Name }}</td>
+                        <td>{{ .Phone }}</td>
+                        <td>{{ .Companions }}</td>
+                        <td>{{ formatDate .UpdatedAt }}</td>
+                    </tr>
+                    {{ else }}
+                    <tr class="empty-row"><td colspan="5">لا يوجد مدعوين أكدوا الحضور.</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- تبويب: المعتذرين -->
+    <!-- Tab: Declined -->
     <div id="declined" class="tab-content">
-        <h2>المدعوون الذين اعتذروا</h2>
-        <a href="/admin/print/declined" target="_blank" class="btn btn-print">🖨️ طباعة قائمة المعتذرين</a>
-        <table>
-            <thead>
-                <tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>المرافقين</th><th>تاريخ الاعتذار</th></tr>
-            </thead>
-            <tbody>
-                {{ range .Declined }}
-                <tr><td>{{ .ID }}</td><td>{{ .Name }}</td><td>{{ .Phone }}</td><td>{{ .Companions }}</td><td>{{ formatDate .UpdatedAt }}</td></tr>
-                {{ else }}
-                <tr><td colspan="5">لا يوجد معتذرين.</td></tr>
-                {{ end }}
-            </tbody>
-        </table>
+        <h3>المدعوون الذين اعتذروا</h3>
+        <div class="toolbar">
+            <a href="/admin/print/declined" target="_blank" class="btn btn-print">🖨️ طباعة قائمة المعتذرين</a>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>المرافقين</th><th>تاريخ الاعتذار</th></tr>
+                </thead>
+                <tbody>
+                    {{ range .Declined }}
+                    <tr>
+                        <td>{{ .ID }}</td>
+                        <td>{{ .Name }}</td>
+                        <td>{{ .Phone }}</td>
+                        <td>{{ .Companions }}</td>
+                        <td>{{ formatDate .UpdatedAt }}</td>
+                    </tr>
+                    {{ else }}
+                    <tr class="empty-row"><td colspan="5">لا يوجد معتذرين.</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- نافذة التعديل -->
+<!-- Edit Modal -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <h3>تعديل بيانات المدعو</h3>
         <input type="hidden" id="editId">
-        
-        <label>الاسم:</label>
+
+        <label>الاسم</label>
         <input type="text" id="editName">
-        
-        <label>الهاتف:</label>
+
+        <label>الهاتف</label>
         <input type="text" id="editPhone">
-        
-        <label>المرافقين:</label>
+
+        <label>المرافقين</label>
         <input type="number" id="editCompanions">
-        
-        <label>حالة الدخول:</label>
+
+        <label>حالة الدخول</label>
         <select id="editCheckedIn">
             <option value="false">لم يدخل بعد</option>
             <option value="true">تم الدخول</option>
         </select>
-        
-        <div style="margin-top: 15px; text-align: left;">
+
+        <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
             <button class="btn btn-primary" onclick="saveEdit()">حفظ التعديلات</button>
         </div>
     </div>
 </div>
 
-<!-- نافذة إرسال الواتساب المعدلة -->
-<div id="broadcastModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:9999;">
-    <div class="modal-content" style="background:#fff; padding:25px; border-radius:12px; width:90%; max-width:500px; text-align:center;">
-        <h3 style="color: #25D366; margin-top:0;">إدارة إرسال الواتساب</h3>
-        
-        <!-- قسم الباركود (يظهر عندما يكون السيرفر غير متصل بالواتساب) -->
-        <div id="qrSection" style="display:none; text-align:center;">
-            <p style="color: #d9534f; font-weight: bold;">⚠️ حساب الواتساب غير متصل!</p>
-            <p style="font-size: 13px; color: #555;">افتح تطبيق الواتساب من هاتفك ➔ الأجهزة المرتبطة ➔ قم بمسح الـ QR Code التالي:</p>
-            
+<!-- WhatsApp Broadcast Modal -->
+<div id="broadcastModal" class="modal wa-modal">
+    <div class="modal-content">
+        <h3>إدارة إرسال الواتساب</h3>
+
+        <!-- QR Section -->
+        <div id="qrSection" style="display:none;">
+            <p style="color:#d9534f; font-weight:700; margin:0 0 8px;">⚠️ حساب الواتساب غير متصل</p>
+            <p class="wa-hint">افتح واتساب ← الأجهزة المرتبطة ← امسح الكود التالي</p>
             <div class="qr-container">
                 <img id="waQRCode" src="" alt="جاري تحميل كود الـ QR...">
             </div>
-            
-            <p style="font-size: 11px; color: #888;">(يتحدث الكود تلقائياً. سيتم تحويلك لصفحة الإرسال فور مسح الكود بنجاح)</p>
+            <p class="wa-hint">يتحدث الكود تلقائياً. بعد المسح ستظهر لك شاشة الإرسال.</p>
+            <button class="btn btn-secondary" style="width:100%; margin-top:8px;" onclick="closeBroadcastModal()">إغلاق</button>
         </div>
 
-        <!-- قسم الإرسال الجماعي (يظهر عندما يكون الحساب متصلاً بنجاح) -->
-<!-- قسم الإرسال الجماعي -->
-<div id="msgSection" style="display:none; text-align:right;">
-    <p style="font-size: 13px; color: #28a745; font-weight: bold; text-align: center;">✅ الحساب متصل وجاهز للإرسال</p>
-    
-    <p style="font-size: 12px; color: #666;">
-        يمكنك استخدام الكلمة <b>{name}</b> ليتم استبدالها تلقائياً باسم كل مدعو.
-        سيتم إرفاق رابط الدخول وتأكيد الحضور أسفل كل رسالة.
-    </p>
-    
-    <label style="display:block; margin-bottom:8px; font-weight:bold;">نص الرسالة:</label>
-    <textarea id="broadcastMsg" rows="5" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;" 
-        placeholder="أهلاً {name}، نتشرف بدعوتك لحضور حفل زفافنا..."></textarea>
+        <!-- Message Section -->
+        <div id="msgSection" style="display:none;" class="wa-section">
+            <div style="text-align:center;">
+                <span class="wa-connected-badge">✅ الحساب متصل وجاهز للإرسال</span>
+            </div>
 
-    <!-- رفع ملف (صورة أو PDF) -->
-    <label style="display:block; margin:15px 0 8px; font-weight:bold;">مرفق (صورة أو PDF) - اختياري:</label>
-    <input type="file" id="broadcastMedia" accept="image/*,.pdf" 
-        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; box-sizing:border-box;">
-    <p style="font-size:11px; color:#888; margin-top:5px;">يفضل صورة بحجم أقل من 3 ميجا أو ملف PDF</p>
-    
-    <div style="margin-top: 15px; display:flex; gap:10px; justify-content:flex-end;">
-        <button class="btn btn-secondary" onclick="closeBroadcastModal()">إلغاء</button>
-        <button class="btn btn-primary" style="background-color: #25D366; border:none;" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال الآن</button>
-    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; text-align: center;">
-    <button class="btn btn-danger" style="width: 100%; padding: 10px;" onclick="logoutWhatsApp()">
-        🔌 فصل الحساب الحالي (تغيير الحساب)
-    </button>
-    <p style="font-size: 11px; color: #888; margin-top: 8px;">
-        استخدم هذا الزر لو عايز تربط حساب واتساب مختلف
-    </p>
-    </div>
-</div>        <!-- زر الإغلاق لجهة الباركود -->
-        <div id="closeQrBtnContainer" style="margin-top: 15px; display:none; text-align:center;">
-            <button class="btn btn-secondary" style="width: 100%;" onclick="closeBroadcastModal()">إغلاق النافذة</button>
+            <p class="wa-hint" style="text-align:right;">
+                استخدم <b>{name}</b> ليُستبدل باسم كل مدعو تلقائياً.
+            </p>
+
+            <label>نص الرسالة</label>
+            <textarea id="broadcastMsg" rows="5"
+                placeholder="أهلاً {name}، نتشرف بدعوتك لحضور حفل زفافنا..."></textarea>
+
+            <label>مرفق (صورة أو PDF) — اختياري</label>
+            <input type="file" id="broadcastMedia" accept="image/*,.pdf">
+            <p class="wa-hint">يفضل صورة أقل من 3 ميجا أو ملف PDF</p>
+
+            <div class="modal-actions" style="margin-top:14px;">
+                <button class="btn btn-secondary" onclick="closeBroadcastModal()">إلغاء</button>
+                <button class="btn btn-accent" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال الآن</button>
+            </div>
+
+            <!-- زر فصل الحساب -->
+            <div class="wa-divider">
+                <button class="btn btn-danger" style="width:100%;" onclick="logoutWhatsApp()">
+                    🔌 فصل الحساب الحالي (تغيير الحساب)
+                </button>
+                <p class="wa-hint" style="text-align:center; margin-top:8px;">
+                    استخدم هذا الزر لربط حساب واتساب مختلف
+                </p>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    function logoutWhatsApp() {
+let qrInterval = null;
+
+function logoutWhatsApp() {
     if (!confirm("هل أنت متأكد من فصل حساب الواتساب الحالي؟\nهتحتاج تمسح QR جديد بحساب تاني.")) {
         return;
     }
 
-    fetch('/admin/api/whatsapp-logout', {
-        method: 'POST'
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            alert("خطأ: " + data.error);
-        } else {
-            alert(data.message || "تم فصل الحساب بنجاح");
-            // نعيد فحص الحالة عشان يظهر الـ QR الجديد
-            checkWhatsAppStatus();
-            // نرجع نبدأ الـ interval لو كان واقف
-            if (!qrInterval) {
-                qrInterval = setInterval(checkWhatsAppStatus, 3000);
+    fetch('/admin/api/whatsapp-logout', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                alert("خطأ: " + data.error);
+            } else {
+                alert(data.message || "تم فصل الحساب بنجاح");
+                checkWhatsAppStatus();
+                if (!qrInterval) {
+                    qrInterval = setInterval(checkWhatsAppStatus, 3000);
+                }
             }
-        }
-    })
-    .catch(err => {
-        alert("حدث خطأ أثناء فصل الحساب");
-        console.error(err);
-    });
+        })
+        .catch(err => {
+            alert("حدث خطأ أثناء فصل الحساب");
+            console.error(err);
+        });
 }
-// متغير خاص بالواتساب
-let qrInterval = null;
 
 function uploadExcel(input) {
     if (!input.files || !input.files[0]) return;
@@ -289,12 +597,10 @@ function uploadExcel(input) {
     })
     .then(async res => {
         const data = await res.json();
-        
         if (!res.ok) {
             alert("خطأ: " + (data.error || "حدث خطأ غير معروف"));
             return;
         }
-
         let msg = `تم بنجاح: ${data.success_count}\nفشل: ${data.fail_count}`;
         if (data.errors && data.errors.length > 0) {
             msg += "\n\nتفاصيل الفشل:\n" + data.errors.join("\n");
@@ -306,65 +612,59 @@ function uploadExcel(input) {
         alert("حدث خطأ في الاتصال بالسيرفر");
         console.error(err);
     });
-    
+
     input.value = '';
 }
 
-function openTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        event.currentTarget.classList.add('active');
-    }
+function openTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    if (btn) btn.classList.add('active');
+}
 
-    function deleteGuest(id) {
-        if (confirm('هل أنت متأكد من حذف هذا المدعو تماماً من النظام؟')) {
-            fetch('/admin/api/guests/' + id, { method: 'DELETE' })
+function deleteGuest(id) {
+    if (confirm('هل أنت متأكد من حذف هذا المدعو تماماً من النظام؟')) {
+        fetch('/admin/api/guests/' + id, { method: 'DELETE' })
             .then(res => res.json())
             .then(data => { alert(data.message); location.reload(); })
-            .catch(err => alert("حدث خطأ"));
-        }
+            .catch(() => alert("حدث خطأ"));
     }
+}
 
-    function openEditModalFromBtn(btn) {
-        const id = btn.getAttribute('data-id');
-        const name = btn.getAttribute('data-name');
-        const phone = btn.getAttribute('data-phone');
-        const companions = btn.getAttribute('data-companions');
-        const checkedIn = btn.getAttribute('data-checked') === 'true';
+function openEditModalFromBtn(btn) {
+    document.getElementById('editId').value = btn.getAttribute('data-id');
+    document.getElementById('editName').value = btn.getAttribute('data-name');
+    document.getElementById('editPhone').value = btn.getAttribute('data-phone');
+    document.getElementById('editCompanions').value = btn.getAttribute('data-companions');
+    document.getElementById('editCheckedIn').value = btn.getAttribute('data-checked') === 'true' ? "true" : "false";
+    document.getElementById('editModal').style.display = 'flex';
+}
 
-        document.getElementById('editId').value = id;
-        document.getElementById('editName').value = name;
-        document.getElementById('editPhone').value = phone;
-        document.getElementById('editCompanions').value = companions;
-        document.getElementById('editCheckedIn').value = checkedIn ? "true" : "false";
-        document.getElementById('editModal').style.display = 'flex';
-    }
-    
-    function closeModal() {
-        document.getElementById('editModal').style.display = 'none';
-    }
+function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
 
-    function saveEdit() {
-        const id = document.getElementById('editId').value;
-        const data = {
-            name: document.getElementById('editName').value,
-            phone: document.getElementById('editPhone').value,
-            companions: parseInt(document.getElementById('editCompanions').value) || 0,
-            checked_in: document.getElementById('editCheckedIn').value === "true"
-        };
+function saveEdit() {
+    const id = document.getElementById('editId').value;
+    const data = {
+        name: document.getElementById('editName').value,
+        phone: document.getElementById('editPhone').value,
+        companions: parseInt(document.getElementById('editCompanions').value) || 0,
+        checked_in: document.getElementById('editCheckedIn').value === "true"
+    };
 
-        fetch('/admin/api/guests/' + id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        .then(res => res.json())
-        .then(data => { alert("تم التعديل بنجاح"); location.reload(); })
-        .catch(err => alert("حدث خطأ أثناء التعديل"));
-    }
+    fetch('/admin/api/guests/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(() => { alert("تم التعديل بنجاح"); location.reload(); })
+    .catch(() => alert("حدث خطأ أثناء التعديل"));
+}
 
-    function toggleSelectAll(source) {
+function toggleSelectAll(source) {
     document.querySelectorAll('.guest-checkbox').forEach(cb => {
         cb.checked = source.checked;
     });
@@ -376,7 +676,6 @@ function deleteSelected() {
         alert("يجب تحديد مدعو واحد على الأقل");
         return;
     }
-
     if (!confirm(`هل أنت متأكد من حذف ${checkboxes.length} مدعو؟`)) return;
 
     const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
@@ -391,7 +690,7 @@ function deleteSelected() {
         alert(data.message || "تم الحذف");
         location.reload();
     })
-    .catch(err => alert("حدث خطأ أثناء الحذف"));
+    .catch(() => alert("حدث خطأ أثناء الحذف"));
 }
 
 function deleteAllGuests() {
@@ -416,14 +715,12 @@ function deleteAllGuests() {
         alert(data.message || "تم حذف الجميع");
         location.reload();
     })
-    .catch(err => alert("حدث خطأ أثناء الحذف"));
+    .catch(() => alert("حدث خطأ أثناء الحذف"));
 }
 
-// === وظائف الواتساب الجديدة ===
 function openBroadcastModal() {
     document.getElementById('broadcastModal').style.display = 'flex';
     checkWhatsAppStatus();
-    // فحص حالة الاتصال وتحديث الـ QR كل 3 ثوانٍ
     qrInterval = setInterval(checkWhatsAppStatus, 3000);
 }
 
@@ -434,59 +731,21 @@ function closeBroadcastModal() {
         qrInterval = null;
     }
 }
-/*function checkWhatsAppStatus() {
-    fetch('/admin/api/whatsapp-status')
-        .then(res => res.json())
-        .then(data => {
-            const qrSection = document.getElementById('qrSection');
-            const msgSection = document.getElementById('msgSection');
-            const closeQrBtnContainer = document.getElementById('closeQrBtnContainer');
-            const qrImage = document.getElementById('waQRCode');
 
-            if (data.connected) {
-                // الحساب متصل
-                qrSection.style.display = 'none';
-                closeQrBtnContainer.style.display = 'none';
-                msgSection.style.display = 'block';
-                
-                if (qrInterval) {
-                    clearInterval(qrInterval);
-                    qrInterval = null;
-                }
-            } else {
-                // الحساب غير متصل
-                msgSection.style.display = 'none';
-                qrSection.style.display = 'block';
-                closeQrBtnContainer.style.display = 'block';
-
-                if (data.qr) {
-                    qrImage.src = data.qr;
-                }
-            }
-        })
-        .catch(err => console.error("خطأ أثناء جلب حالة الواتساب:", err));
-} */
 function checkWhatsAppStatus() {
     fetch('/admin/api/whatsapp-status')
         .then(res => {
-            if (!res.ok) {
-                throw new Error('فشل الاتصال بمسار الحالة (HTTP status ' + res.status + ')');
-            }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
             return res.json();
         })
         .then(data => {
-            console.log("حالة الواتساب المستلمة:", data);
-
             const qrSection = document.getElementById('qrSection');
             const msgSection = document.getElementById('msgSection');
-            const closeQrBtnContainer = document.getElementById('closeQrBtnContainer');
             const qrImage = document.getElementById('waQRCode');
 
             if (data.connected) {
                 qrSection.style.display = 'none';
-                closeQrBtnContainer.style.display = 'none';
                 msgSection.style.display = 'block';
-
                 if (qrInterval) {
                     clearInterval(qrInterval);
                     qrInterval = null;
@@ -494,8 +753,6 @@ function checkWhatsAppStatus() {
             } else {
                 msgSection.style.display = 'none';
                 qrSection.style.display = 'block';
-                closeQrBtnContainer.style.display = 'block';
-
                 if (data.qr && data.qr !== "") {
                     qrImage.src = data.qr;
                     qrImage.alt = "امسح هذا الكود بواتساب";
@@ -522,7 +779,6 @@ function sendBroadcast() {
     const formData = new FormData();
     formData.append('message_text', msgText);
 
-    // إضافة الملف لو موجود
     const mediaInput = document.getElementById('broadcastMedia');
     if (mediaInput.files && mediaInput.files[0]) {
         formData.append('media', mediaInput.files[0]);
@@ -530,7 +786,7 @@ function sendBroadcast() {
 
     fetch('/admin/api/broadcast-whatsapp', {
         method: 'POST',
-        body: formData   // مهم: مابنش رسل Content-Type يدوي مع FormData
+        body: formData
     })
     .then(res => res.json())
     .then(data => {
@@ -550,8 +806,21 @@ function sendBroadcast() {
     .finally(() => {
         btn.innerText = "🚀 إرسال الآن";
         btn.disabled = false;
-        });
+    });
 }
+
+// إغلاق المودال بالضغط خارج الصندوق
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.style.display = 'none';
+            if (this.id === 'broadcastModal' && qrInterval) {
+                clearInterval(qrInterval);
+                qrInterval = null;
+            }
+        }
+    });
+});
 </script>
 
 </body>

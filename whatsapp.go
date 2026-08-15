@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
-	"io"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -227,13 +227,6 @@ func normalizePhone(phone string) string {
 		return "966" + phone
 	}
 
-	// الإمارات: يبدأ بـ 05 وطوله 10 → 9715xxxxxxxx
-	// (ملاحظة: نفس بداية السعودية، بس الإمارات غالباً 050/052/054/055/056/058)
-	if strings.HasPrefix(phone, "05") && len(phone) == 10 {
-		// لو حابب تفضل الإمارات على السعودية في الحالة دي، غيّر الترتيب
-		// حالياً السعودية لها أولوية لأنها أكتر استخداماً
-	}
-
 	// الكويت: يبدأ بـ 5 أو 6 أو 9 وطوله 8
 	if len(phone) == 8 && (strings.HasPrefix(phone, "5") || strings.HasPrefix(phone, "6") || strings.HasPrefix(phone, "9")) {
 		return "965" + phone
@@ -254,7 +247,7 @@ func normalizePhone(phone string) string {
 		return "962" + phone[1:]
 	}
 
-	// لو مقدرناش نخمن → نرجعه زي ما هو (الأفضل إن اليوزر يدخله بالصيغة الدولية)
+	// لو مقدرناش نخمن → نرجعه زي ما هو
 	return phone
 }
 
@@ -420,6 +413,7 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	var guests []Guest
 	DB.Find(&guests)
 
+	// تحديد الدومين تلقائياً حسب السيرفر الحالي
 	scheme := "http"
 	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"
@@ -438,9 +432,12 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 		go func(g Guest) {
 			defer wg.Done()
 
-			loginLink := fmt.Sprintf("%s/login", baseURL)
-			personalizedMsg := strings.ReplaceAll(messageText, "{name}", g.Name)
-			fullMessage := fmt.Sprintf("%s\n\nرابط تأكيد الحضور:\n%s", personalizedMsg, loginLink)
+			// رابط الدعوة الخاص بالضيف (يتغير حسب السيرفر)
+			inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
+
+			// استبدال المتغيرات
+			fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
+			fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
 
 			var sendErr error
 			if len(mediaData) > 0 {
@@ -485,7 +482,6 @@ func LogoutWhatsAppHandler(c *gin.Context) {
 		err := WAClient.Logout(context.Background())
 		if err != nil {
 			fmt.Printf("⚠️ تحذير أثناء تسجيل الخروج: %v\n", err)
-			// نكمل حتى لو فشل الـ Logout
 		}
 		WAClient.Disconnect()
 	}
@@ -498,7 +494,7 @@ func LogoutWhatsAppHandler(c *gin.Context) {
 
 	// 3. حذف ملف قاعدة بيانات الجلسة
 	os.Remove("wa_store.db")
-	os.Remove("wa_store.db-journal") // لو موجود
+	os.Remove("wa_store.db-journal")
 	os.Remove("wa_store.db-wal")
 	os.Remove("wa_store.db-shm")
 

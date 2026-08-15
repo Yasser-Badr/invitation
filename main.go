@@ -685,6 +685,15 @@ func main() {
 	// =====================================
 	// المسارات المحمية (بكلمة مرور للأدمن)
 	// =====================================
+	adminAuthScan := r.Group("/", gin.BasicAuth(gin.Accounts{
+	"Yasser Badr": "Yasser.12#",
+}))
+{
+	// تم إصلاح الـ nesting هنا
+	adminAuthScan.GET("/scan", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "scanner.html", gin.H{})
+	})
+}
 
 	adminAuth := r.Group("/", gin.BasicAuth(gin.Accounts{
 	"Yaaser Badr": "Yasser.12#",
@@ -709,16 +718,12 @@ func main() {
 	adminAuth.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler)
 	adminAuth.POST("/admin/api/whatsapp-logout", LogoutWhatsAppHandler)
 
-	// تم إصلاح الـ nesting هنا
-	adminAuth.GET("/scan", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "scanner.html", gin.H{})
-	})
 	adminAuth.GET("/api/verify/:token", APIVerify)
 	adminAuth.GET("/verify/:token", RenderVerifyPage)
 }
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+    	port = "8080"
 	}
 	
 	// تشغيل الخادم على جميع واجهات الشبكة

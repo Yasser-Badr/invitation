@@ -415,9 +415,9 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 
 	// تحديد الدومين تلقائياً حسب السيرفر الحالي
 	scheme := "http"
-	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
+	//if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
+		//scheme = "https"
+	//}
 	baseURL := fmt.Sprintf("%s://%s", scheme, c.Request.Host)
 
 	var wg sync.WaitGroup

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"os"
@@ -238,12 +242,71 @@ func SendWAMessage(phone string, message string) error {
 	return nil
 }
 
+// تحويل الصورة لـ JPEG
+func toJPEG(data []byte) ([]byte, int, int, error) {
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	b := img.Bounds()
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
+		return nil, 0, 0, err
+	}
+	return buf.Bytes(), b.Dx(), b.Dy(), nil
+}
+
+// عمل صورة مصغرة حقيقية لواتساب
+func makeThumbnail(jpegData []byte) []byte {
+	img, err := jpeg.Decode(bytes.NewReader(jpegData))
+	if err != nil {
+		img2, _, err2 := image.Decode(bytes.NewReader(jpegData))
+		if err2 != nil {
+			return nil
+		}
+		img = img2
+	}
+
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	tw := 72
+	if w < tw {
+		tw = w
+	}
+	th := h * tw / w
+	if th < 1 {
+		th = 1
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, tw, th))
+	for y := 0; y < th; y++ {
+		for x := 0; x < tw; x++ {
+			sx := x * w / tw
+			sy := y * h / th
+			dst.Set(x, y, img.At(b.Min.X+sx, b.Min.Y+sy))
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 50}); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
 func SendWAImage(phone string, imageData []byte, caption string) error {
 	if WAClient == nil || !WAClient.IsConnected() {
 		return fmt.Errorf("حساب الواتساب غير متصل")
 	}
 
-	uploaded, err := WAClient.Upload(context.Background(), imageData, whatsmeow.MediaImage)
+	jpegData, width, height, err := toJPEG(imageData)
+	if err != nil {
+		jpegData = imageData
+		width, height = 800, 800
+		fmt.Printf("⚠️ تحذير تحويل الصورة: %v\n", err)
+	}
+
+	uploaded, err := WAClient.Upload(context.Background(), jpegData, whatsmeow.MediaImage)
 	if err != nil {
 		return fmt.Errorf("فشل رفع الصورة: %v", err)
 	}
@@ -251,32 +314,34 @@ func SendWAImage(phone string, imageData []byte, caption string) error {
 	phone = normalizePhone(phone)
 	jid := types.NewJID(phone, types.DefaultUserServer)
 
-	mimeType := http.DetectContentType(imageData)
-	if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
-		mimeType = "image/jpeg"
+	thumb := makeThumbnail(jpegData)
+
+	imgMsg := &waProto.ImageMessage{
+		Caption:       proto.String(caption),
+		Mimetype:      proto.String("image/jpeg"),
+		URL:           proto.String(uploaded.URL),
+		DirectPath:    proto.String(uploaded.DirectPath),
+		MediaKey:      uploaded.MediaKey,
+		FileEncSHA256: uploaded.FileEncSHA256,
+		FileSHA256:    uploaded.FileSHA256,
+		FileLength:    proto.Uint64(uint64(len(jpegData))),
+		Width:         proto.Uint32(uint32(width)),
+		Height:        proto.Uint32(uint32(height)),
 	}
 
-	msg := &waProto.Message{
-		ImageMessage: &waProto.ImageMessage{
-			Caption:       proto.String(caption),
-			Mimetype:      proto.String(mimeType),
-			URL:           proto.String(uploaded.URL),
-			DirectPath:    proto.String(uploaded.DirectPath),
-			MediaKey:      uploaded.MediaKey,
-			FileEncSHA256: uploaded.FileEncSHA256,
-			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(imageData))),
-			Width:         proto.Uint32(800),
-			Height:        proto.Uint32(800),
-		},
+	if len(thumb) > 0 {
+		imgMsg.JPEGThumbnail = thumb
 	}
+
+	msg := &waProto.Message{ImageMessage: imgMsg}
 
 	_, err = WAClient.SendMessage(context.Background(), jid, msg)
 	if err != nil {
 		fmt.Printf("❌ فشل إرسال الصورة إلى %s: %v\n", phone, err)
 		return err
 	}
-	fmt.Printf("✅ تم إرسال الصورة بنجاح إلى: %s\n", phone)
+
+	fmt.Printf("✅ تم إرسال الصورة بنجاح إلى: %s (%dx%d)\n", phone, width, height)
 	return nil
 }
 
@@ -371,24 +436,14 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	var guests []Guest
 	DB.Find(&guests)
 
-	// لو داخل من الدومين عبر Caddy غالباً X-Forwarded-Proto = https
 	scheme := "http"
 	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"
 	}
-	// لو حابب تثبت https بعد ما Caddy يشتغل:
-	// scheme = "https"
 
 	host := c.Request.Host
-	// شيل البورت من الهوست لو موجود عشان اللينك يبقى نظيف مع Caddy
-	if h, _, err := strings.Cut(host, ":"); err == false && h != "" {
-		// strings.Cut returns found=true when separator exists
-	}
-	if idx := strings.Index(host, ":"); idx > 0 {
-		// لو Host فيه :8080 وهو دامين، ممكن نسيب الدومين بس
-		if !strings.Contains(host, "cloud-ip.cc") {
-			// نخلي البورت زي ما هو للـ IP
-		} else {
+	if strings.Contains(host, "cloud-ip.cc") {
+		if idx := strings.Index(host, ":"); idx > 0 {
 			host = host[:idx]
 		}
 	}

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
@@ -27,7 +28,6 @@ var CurrentQRBase64 string
 var qrMutex sync.Mutex
 var isConnecting bool
 
-// تهيئة اتصال الواتساب
 func InitWhatsApp() {
 	dbLog := waLog.Stdout("Database", "WARN", true)
 	container, err := sqlstore.New(context.Background(), "sqlite3", "file:wa_store.db?_foreign_keys=on", dbLog)
@@ -45,7 +45,6 @@ func InitWhatsApp() {
 	clientLog := waLog.Stdout("Client", "INFO", true)
 	WAClient = whatsmeow.NewClient(deviceStore, clientLog)
 
-	// لو الجلسة موجودة مسبقاً → اتصل تلقائياً
 	if WAClient.Store.ID != nil {
 		err = WAClient.Connect()
 		if err == nil {
@@ -58,44 +57,44 @@ func InitWhatsApp() {
 	}
 }
 
-// دالة لتوليد QR جديد عند الطلب
 func StartQRLogin() {
 	qrMutex.Lock()
-	defer qrMutex.Unlock()
-
 	if WAClient == nil {
+		qrMutex.Unlock()
 		return
 	}
-
-	// لو متصل خلاص مفيش داعي
 	if WAClient.IsConnected() && WAClient.Store.ID != nil {
+		qrMutex.Unlock()
 		return
 	}
-
-	// لو فيه عملية اتصال جارية خلاص
 	if isConnecting {
+		qrMutex.Unlock()
 		return
 	}
-
 	isConnecting = true
 	CurrentQRBase64 = ""
+	qrMutex.Unlock()
 
-	// لو فيه اتصال قديم افصله
 	if WAClient.IsConnected() {
 		WAClient.Disconnect()
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	qrChan, err := WAClient.GetQRChannel(context.Background())
 	if err != nil {
 		fmt.Printf("❌ فشل الحصول على قناة الـ QR: %v\n", err)
+		qrMutex.Lock()
 		isConnecting = false
+		qrMutex.Unlock()
 		return
 	}
 
 	err = WAClient.Connect()
 	if err != nil {
 		fmt.Printf("❌ فشل الاتصال بالواتساب: %v\n", err)
+		qrMutex.Lock()
 		isConnecting = false
+		qrMutex.Unlock()
 		return
 	}
 
@@ -141,14 +140,12 @@ func StartQRLogin() {
 	}()
 }
 
-// مسار إرجاع حالة الواتساب
 func WhatsAppStatusHandler(c *gin.Context) {
 	if WAClient != nil && WAClient.IsConnected() && WAClient.Store.ID != nil {
 		c.JSON(http.StatusOK, gin.H{"connected": true})
 		return
 	}
 
-	// لو مش متصل → ابدأ توليد QR لو مفيش واحد شغال
 	qrMutex.Lock()
 	qr := CurrentQRBase64
 	connecting := isConnecting
@@ -164,9 +161,7 @@ func WhatsAppStatusHandler(c *gin.Context) {
 	})
 }
 
-// تنظيف وتوحيد صيغة الرقم
 func normalizePhone(phone string) string {
-	// 1. تنظيف الرقم من الرموز والمسافات
 	phone = strings.TrimSpace(phone)
 	phone = strings.ReplaceAll(phone, "+", "")
 	phone = strings.ReplaceAll(phone, " ", "")
@@ -179,79 +174,46 @@ func normalizePhone(phone string) string {
 		return phone
 	}
 
-	// 2. لو الرقم بيبدأ برمز دولة معروف خلاص نرجعه زي ما هو
 	knownCodes := []string{
-		"20",  // مصر
-		"966", // السعودية
-		"971", // الإمارات
-		"965", // الكويت
-		"973", // البحرين
-		"974", // قطر
-		"968", // عمان
-		"962", // الأردن
-		"961", // لبنان
-		"963", // سوريا
-		"964", // العراق
-		"218", // ليبيا
-		"212", // المغرب
-		"213", // الجزائر
-		"216", // تونس
-		"249", // السودان
-		"970", // فلسطين
-		"967", // اليمن
+		"20", "966", "971", "965", "973", "974", "968",
+		"962", "961", "963", "964", "218", "212", "213",
+		"216", "249", "970", "967",
 	}
 
 	for _, code := range knownCodes {
 		if strings.HasPrefix(phone, code) {
-			return phone // الرمز موجود خلاص
+			return phone
 		}
 	}
 
-	// 3. لو مفيش رمز دولة → نحاول نخمن حسب شكل الرقم
-
-	// مصر: يبدأ بـ 01 وطوله 11 → 201xxxxxxxxx
 	if strings.HasPrefix(phone, "01") && len(phone) == 11 {
 		return "20" + phone[1:]
 	}
-	// مصر: يبدأ بـ 1 وطوله 10 (من غير الصفر)
 	if strings.HasPrefix(phone, "1") && len(phone) == 10 {
 		return "20" + phone
 	}
-
-	// السعودية: يبدأ بـ 05 وطوله 10 → 9665xxxxxxxx
 	if strings.HasPrefix(phone, "05") && len(phone) == 10 {
 		return "966" + phone[1:]
 	}
-	// السعودية: يبدأ بـ 5 وطوله 9
 	if strings.HasPrefix(phone, "5") && len(phone) == 9 {
 		return "966" + phone
 	}
-
-	// الكويت: يبدأ بـ 5 أو 6 أو 9 وطوله 8
 	if len(phone) == 8 && (strings.HasPrefix(phone, "5") || strings.HasPrefix(phone, "6") || strings.HasPrefix(phone, "9")) {
 		return "965" + phone
 	}
-
-	// قطر: يبدأ بـ 3 أو 5 أو 6 أو 7 وطوله 8
-	if len(phone) == 8 && (phone[0] >= '3' && phone[0] <= '7') {
+	if len(phone) == 8 && phone[0] >= '3' && phone[0] <= '7' {
 		return "974" + phone
 	}
-
-	// البحرين: يبدأ بـ 3 وطوله 8
 	if strings.HasPrefix(phone, "3") && len(phone) == 8 {
 		return "973" + phone
 	}
-
-	// الأردن: يبدأ بـ 07 وطوله 10
 	if strings.HasPrefix(phone, "07") && len(phone) == 10 {
 		return "962" + phone[1:]
 	}
 
-	// لو مقدرناش نخمن → نرجعه زي ما هو
 	return phone
 }
 
-// إرسال رسالة نصية عادية
 func SendWAMessage(phone string, message string) error {
 	if WAClient == nil || !WAClient.IsConnected() {
 		return fmt.Errorf("حساب الواتساب غير متصل")
@@ -276,7 +238,6 @@ func SendWAMessage(phone string, message string) error {
 	return nil
 }
 
-// إرسال صورة مع تعليق (Caption)
 func SendWAImage(phone string, imageData []byte, caption string) error {
 	if WAClient == nil || !WAClient.IsConnected() {
 		return fmt.Errorf("حساب الواتساب غير متصل")
@@ -291,7 +252,7 @@ func SendWAImage(phone string, imageData []byte, caption string) error {
 	jid := types.NewJID(phone, types.DefaultUserServer)
 
 	mimeType := http.DetectContentType(imageData)
-	if mimeType == "application/octet-stream" {
+	if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" {
 		mimeType = "image/jpeg"
 	}
 
@@ -305,6 +266,8 @@ func SendWAImage(phone string, imageData []byte, caption string) error {
 			FileEncSHA256: uploaded.FileEncSHA256,
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(imageData))),
+			Width:         proto.Uint32(800),
+			Height:        proto.Uint32(800),
 		},
 	}
 
@@ -313,12 +276,10 @@ func SendWAImage(phone string, imageData []byte, caption string) error {
 		fmt.Printf("❌ فشل إرسال الصورة إلى %s: %v\n", phone, err)
 		return err
 	}
-
 	fmt.Printf("✅ تم إرسال الصورة بنجاح إلى: %s\n", phone)
 	return nil
 }
 
-// إرسال ملف PDF أو أي مستند
 func SendWADocument(phone string, fileData []byte, fileName string, caption string) error {
 	if WAClient == nil || !WAClient.IsConnected() {
 		return fmt.Errorf("حساب الواتساب غير متصل")
@@ -362,7 +323,6 @@ func SendWADocument(phone string, fileData []byte, fileName string, caption stri
 	return nil
 }
 
-// دالة الإرسال الجماعي (تدعم نص + صورة/PDF)
 func BroadcastWhatsAppHandler(c *gin.Context) {
 	messageText := c.PostForm("message_text")
 	if strings.TrimSpace(messageText) == "" {
@@ -375,7 +335,6 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 		return
 	}
 
-	// قراءة الملف المرفق مباشرة في الذاكرة (بدون حفظ على الديسك)
 	var mediaData []byte
 	var mediaFileName string
 	var mediaType string
@@ -396,7 +355,6 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 		}
 
 		mediaFileName = fileHeader.Filename
-
 		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".gif" {
 			mediaType = "image"
@@ -413,12 +371,29 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	var guests []Guest
 	DB.Find(&guests)
 
-	// تحديد الدومين تلقائياً حسب السيرفر الحالي
+	// لو داخل من الدومين عبر Caddy غالباً X-Forwarded-Proto = https
 	scheme := "http"
-	//if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
-		//scheme = "https"
-	//}
-	baseURL := fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	// لو حابب تثبت https بعد ما Caddy يشتغل:
+	// scheme = "https"
+
+	host := c.Request.Host
+	// شيل البورت من الهوست لو موجود عشان اللينك يبقى نظيف مع Caddy
+	if h, _, err := strings.Cut(host, ":"); err == false && h != "" {
+		// strings.Cut returns found=true when separator exists
+	}
+	if idx := strings.Index(host, ":"); idx > 0 {
+		// لو Host فيه :8080 وهو دامين، ممكن نسيب الدومين بس
+		if !strings.Contains(host, "cloud-ip.cc") {
+			// نخلي البورت زي ما هو للـ IP
+		} else {
+			host = host[:idx]
+		}
+	}
+
+	baseURL := fmt.Sprintf("%s://%s", scheme, host)
 
 	var wg sync.WaitGroup
 	var successCount, failCount int
@@ -432,10 +407,7 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 		go func(g Guest) {
 			defer wg.Done()
 
-			// رابط الدعوة الخاص بالضيف (يتغير حسب السيرفر)
 			inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
-
-			// استبدال المتغيرات
 			fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
 			fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
 
@@ -470,14 +442,12 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	})
 }
 
-// فصل الحساب الحالي وإعادة التهيئة للربط من جديد
 func LogoutWhatsAppHandler(c *gin.Context) {
 	if WAClient == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يوجد عميل واتساب"})
 		return
 	}
 
-	// 1. تسجيل الخروج من سيرفرات واتساب (لو متصل)
 	if WAClient.IsConnected() {
 		err := WAClient.Logout(context.Background())
 		if err != nil {
@@ -486,19 +456,16 @@ func LogoutWhatsAppHandler(c *gin.Context) {
 		WAClient.Disconnect()
 	}
 
-	// 2. مسح بيانات الجلسة من الذاكرة
 	qrMutex.Lock()
 	CurrentQRBase64 = ""
 	isConnecting = false
 	qrMutex.Unlock()
 
-	// 3. حذف ملف قاعدة بيانات الجلسة
 	os.Remove("wa_store.db")
 	os.Remove("wa_store.db-journal")
 	os.Remove("wa_store.db-wal")
 	os.Remove("wa_store.db-shm")
 
-	// 4. إعادة تهيئة العميل من الصفر
 	WAClient = nil
 	InitWhatsApp()
 

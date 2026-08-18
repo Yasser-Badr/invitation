@@ -32,12 +32,8 @@
             line-height: 1.5;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        .container { max-width: 1200px; margin: 0 auto; }
 
-        /* Header */
         .header-card {
             background: var(--card);
             border-radius: var(--radius);
@@ -64,7 +60,6 @@
             align-items: center;
         }
 
-        /* Buttons */
         .btn {
             padding: 10px 18px;
             border-radius: 8px;
@@ -89,17 +84,14 @@
         .btn-secondary { background: #f1c40f; color: #333; }
         .btn-success { background: var(--success); }
         .btn-accent { background: var(--accent); }
+        .btn-whatsapp-selected { background: #128C7E; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-print { background: #34495e; }
         .btn-purple { background: #8e44ad; }
         .btn-teal { background: #16a085; }
 
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
 
-        /* Tabs */
         .tabs {
             display: flex;
             gap: 8px;
@@ -127,7 +119,6 @@
             color: white;
         }
 
-        /* Content cards */
         .tab-content {
             display: none;
             background: var(--card);
@@ -146,12 +137,8 @@
             align-items: center;
         }
 
-        h2, h3 {
-            color: var(--primary);
-            margin-top: 0;
-        }
+        h2, h3 { color: var(--primary); margin-top: 0; }
 
-        /* Table */
         .table-wrap {
             overflow-x: auto;
             border-radius: 8px;
@@ -180,10 +167,8 @@
         }
 
         tr:hover td { background: #f8faf9; }
-
         td { font-size: 13px; }
 
-        /* Status badges */
         .status {
             display: inline-block;
             font-weight: 600;
@@ -196,7 +181,6 @@
         .status-confirmed { background: #d4edda; color: #155724; }
         .status-declined { background: #f8d7da; color: #721c24; }
 
-        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -225,10 +209,7 @@
             to { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        .modal-content h3 {
-            margin: 0 0 16px;
-            font-size: 1.15rem;
-        }
+        .modal-content h3 { margin: 0 0 16px; font-size: 1.15rem; }
 
         .modal label {
             display: block;
@@ -266,15 +247,12 @@
             margin-top: 8px;
         }
 
-        /* WhatsApp modal specific */
         .wa-modal .modal-content {
             max-width: 480px;
             text-align: center;
         }
 
-        .wa-modal h3 {
-            color: var(--accent);
-        }
+        .wa-modal h3 { color: var(--accent); }
 
         .qr-container {
             margin: 16px 0;
@@ -308,9 +286,18 @@
             margin-bottom: 12px;
         }
 
-        .wa-section {
-            text-align: right;
+        .wa-selected-badge {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
         }
+
+        .wa-section { text-align: right; }
 
         .wa-divider {
             border-top: 1px solid var(--border);
@@ -318,13 +305,11 @@
             padding-top: 14px;
         }
 
-        /* Empty state */
         .empty-row td {
             padding: 28px;
             color: var(--muted);
         }
 
-        /* Responsive */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .header-card { padding: 16px; }
@@ -337,7 +322,6 @@
 <body>
 
 <div class="container">
-    <!-- Header -->
     <div class="header-card">
         <h2>لوحة الإدارة والإحصائيات</h2>
         <div class="header-actions">
@@ -352,18 +336,17 @@
         </div>
     </div>
 
-    <!-- Tabs -->
     <div class="tabs">
         <button class="tab-btn active" onclick="openTab('all', this)">📋 جميع المدعوين</button>
         <button class="tab-btn" onclick="openTab('confirmed', this)">✅ مؤكدي الحضور ({{ len .Confirmed }})</button>
         <button class="tab-btn" onclick="openTab('declined', this)">❌ المعتذرين ({{ len .Declined }})</button>
     </div>
 
-    <!-- Tab: All Guests -->
     <div id="all" class="tab-content active">
         <div class="toolbar">
             <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة الكل</a>
-            <button class="btn btn-accent" onclick="openBroadcastModal()">💬 إرسال واتساب</button>
+            <button class="btn btn-accent" onclick="openBroadcastModal()">💬 إرسال للجميع</button>
+            <button class="btn btn-whatsapp-selected" onclick="openBroadcastModalSelected()">📲 إرسال للمحددين</button>
             <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف المحددين</button>
             <button class="btn btn-danger" style="background:#c0392b;" onclick="deleteAllGuests()">🗑️ حذف الكل</button>
         </div>
@@ -421,7 +404,6 @@
         </div>
     </div>
 
-    <!-- Tab: Confirmed -->
     <div id="confirmed" class="tab-content">
         <h3>المدعوون الذين أكدوا الحضور</h3>
         <div class="toolbar">
@@ -449,7 +431,6 @@
         </div>
     </div>
 
-    <!-- Tab: Declined -->
     <div id="declined" class="tab-content">
         <h3>المدعوون الذين اعتذروا</h3>
         <div class="toolbar">
@@ -483,22 +464,17 @@
     <div class="modal-content">
         <h3>تعديل بيانات المدعو</h3>
         <input type="hidden" id="editId">
-
         <label>الاسم</label>
         <input type="text" id="editName">
-
         <label>الهاتف</label>
         <input type="text" id="editPhone">
-
         <label>المرافقين</label>
         <input type="number" id="editCompanions">
-
         <label>حالة الدخول</label>
         <select id="editCheckedIn">
             <option value="false">لم يدخل بعد</option>
             <option value="true">تم الدخول</option>
         </select>
-
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
             <button class="btn btn-primary" onclick="saveEdit()">حفظ التعديلات</button>
@@ -511,7 +487,6 @@
     <div class="modal-content">
         <h3>إدارة إرسال الواتساب</h3>
 
-        <!-- QR Section -->
         <div id="qrSection" style="display:none;">
             <p style="color:#d9534f; font-weight:700; margin:0 0 8px;">⚠️ حساب الواتساب غير متصل</p>
             <p class="wa-hint">افتح واتساب ← الأجهزة المرتبطة ← امسح الكود التالي</p>
@@ -522,14 +497,14 @@
             <button class="btn btn-secondary" style="width:100%; margin-top:8px;" onclick="closeBroadcastModal()">إغلاق</button>
         </div>
 
-        <!-- Message Section -->
         <div id="msgSection" style="display:none;" class="wa-section">
             <div style="text-align:center;">
                 <span class="wa-connected-badge">✅ الحساب متصل وجاهز للإرسال</span>
+                <div id="selectedInfo" class="wa-selected-badge" style="display:none;"></div>
             </div>
 
             <p class="wa-hint" style="text-align:right;">
-                استخدم <b>{name}</b> ليُستبدل باسم كل مدعو تلقائياً.
+                استخدم <b>{name}</b> لاسم المدعو و <b>{link}</b> لرابط الدعوة.
             </p>
 
             <label>نص الرسالة</label>
@@ -545,7 +520,6 @@
                 <button class="btn btn-accent" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال الآن</button>
             </div>
 
-            <!-- زر فصل الحساب -->
             <div class="wa-divider">
                 <button class="btn btn-danger" style="width:100%;" onclick="logoutWhatsApp()">
                     🔌 فصل الحساب الحالي (تغيير الحساب)
@@ -560,12 +534,12 @@
 
 <script>
 let qrInterval = null;
+let broadcastSelectedOnly = false;
 
 function logoutWhatsApp() {
     if (!confirm("هل أنت متأكد من فصل حساب الواتساب الحالي؟\nهتحتاج تمسح QR جديد بحساب تاني.")) {
         return;
     }
-
     fetch('/admin/api/whatsapp-logout', { method: 'POST' })
         .then(res => res.json())
         .then(data => {
@@ -587,14 +561,9 @@ function logoutWhatsApp() {
 
 function uploadExcel(input) {
     if (!input.files || !input.files[0]) return;
-
     const formData = new FormData();
     formData.append('excel', input.files[0]);
-
-    fetch('/admin/api/import-excel', {
-        method: 'POST',
-        body: formData
-    })
+    fetch('/admin/api/import-excel', { method: 'POST', body: formData })
     .then(async res => {
         const data = await res.json();
         if (!res.ok) {
@@ -612,7 +581,6 @@ function uploadExcel(input) {
         alert("حدث خطأ في الاتصال بالسيرفر");
         console.error(err);
     });
-
     input.value = '';
 }
 
@@ -653,7 +621,6 @@ function saveEdit() {
         companions: parseInt(document.getElementById('editCompanions').value) || 0,
         checked_in: document.getElementById('editCheckedIn').value === "true"
     };
-
     fetch('/admin/api/guests/' + id, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -677,9 +644,7 @@ function deleteSelected() {
         return;
     }
     if (!confirm(`هل أنت متأكد من حذف ${checkboxes.length} مدعو؟`)) return;
-
     const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
-
     fetch('/admin/api/guests/bulk-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -696,15 +661,12 @@ function deleteSelected() {
 function deleteAllGuests() {
     if (!confirm("تحذير: سيتم حذف جميع المدعوين نهائياً. هل أنت متأكد؟")) return;
     if (!confirm("تأكيد نهائي: هل تريد حذف الكل؟")) return;
-
     const allCheckboxes = document.querySelectorAll('.guest-checkbox');
     const ids = Array.from(allCheckboxes).map(cb => parseInt(cb.value));
-
     if (ids.length === 0) {
         alert("لا يوجد مدعوين للحذف");
         return;
     }
-
     fetch('/admin/api/guests/bulk-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -719,6 +681,24 @@ function deleteAllGuests() {
 }
 
 function openBroadcastModal() {
+    broadcastSelectedOnly = false;
+    const info = document.getElementById('selectedInfo');
+    info.style.display = 'none';
+    document.getElementById('broadcastModal').style.display = 'flex';
+    checkWhatsAppStatus();
+    qrInterval = setInterval(checkWhatsAppStatus, 3000);
+}
+
+function openBroadcastModalSelected() {
+    const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert("يجب تحديد مدعو واحد على الأقل");
+        return;
+    }
+    broadcastSelectedOnly = true;
+    const info = document.getElementById('selectedInfo');
+    info.style.display = 'inline-block';
+    info.textContent = 'سيتم الإرسال إلى ' + checkboxes.length + ' مدعو محدد';
     document.getElementById('broadcastModal').style.display = 'flex';
     checkWhatsAppStatus();
     qrInterval = setInterval(checkWhatsAppStatus, 3000);
@@ -779,6 +759,13 @@ function sendBroadcast() {
     const formData = new FormData();
     formData.append('message_text', msgText);
 
+    if (broadcastSelectedOnly) {
+        const ids = Array.from(document.querySelectorAll('.guest-checkbox:checked'))
+            .map(cb => cb.value)
+            .join(',');
+        formData.append('guest_ids', ids);
+    }
+
     const mediaInput = document.getElementById('broadcastMedia');
     if (mediaInput.files && mediaInput.files[0]) {
         formData.append('media', mediaInput.files[0]);
@@ -797,6 +784,7 @@ function sendBroadcast() {
             closeBroadcastModal();
             document.getElementById('broadcastMsg').value = '';
             document.getElementById('broadcastMedia').value = '';
+            broadcastSelectedOnly = false;
         }
     })
     .catch(err => {
@@ -809,7 +797,6 @@ function sendBroadcast() {
     });
 }
 
-// إغلاق المودال بالضغط خارج الصندوق
 document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', function(e) {
         if (e.target === this) {

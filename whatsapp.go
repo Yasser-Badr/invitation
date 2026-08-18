@@ -433,9 +433,37 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 		}
 	}
 
+// إرسال للمحددين فقط لو اتبعت guest_ids
+	idsStr := c.PostForm("guest_ids")
 	var guests []Guest
-	DB.Find(&guests)
 
+	if strings.TrimSpace(idsStr) != "" {
+		parts := strings.Split(idsStr, ",")
+		var ids []uint
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			var id uint
+			if _, err := fmt.Sscanf(p, "%d", &id); err == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "لم يتم تحديد مدعوين صالحين"})
+			return
+		}
+		DB.Where("id IN ?", ids).Find(&guests)
+	} else {
+		DB.Find(&guests)
+	}
+
+	if len(guests) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يوجد مدعوين للإرسال إليهم"})
+		return
+	}
+	
 	scheme := "http"
 	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"

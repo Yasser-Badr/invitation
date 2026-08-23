@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 	"path/filepath"
+	"github.com/joho/godotenv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -311,6 +312,7 @@ type UpdateGuestInput struct {
 	Phone      string `json:"phone" binding:"required"`
 	Companions int    `json:"companions"`
 	CheckedIn  bool   `json:"checked_in"`
+	Status     string `json:"status"`
 }
 
 func UpdateGuestAdmin(c *gin.Context) {
@@ -320,9 +322,20 @@ func UpdateGuestAdmin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	var guest Guest
 	if err := DB.First(&guest, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "الضيف غير موجود"})
+		return
+	}
+
+	oldStatus := guest.Status
+	newStatus := strings.TrimSpace(input.Status)
+	if newStatus == "" {
+		newStatus = oldStatus
+	}
+	if newStatus != "pending" && newStatus != "confirmed" && newStatus != "declined" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "حالة غير صالحة (pending / confirmed / declined)"})
 		return
 	}
 
@@ -330,8 +343,47 @@ func UpdateGuestAdmin(c *gin.Context) {
 	guest.Phone = input.Phone
 	guest.Companions = input.Companions
 	guest.CheckedIn = input.CheckedIn
-	DB.Save(&guest)
-	c.JSON(http.StatusOK, gin.H{"message": "تم التعديل بنجاح"})
+
+	// إلغاء الباركود عند الاعتذار أو الرجوع لقيد الانتظار
+	if newStatus == "declined" || newStatus == "pending" {
+		if guest.QRImageURL != "" {
+			_ = os.Remove("." + guest.QRImageURL)
+			guest.QRImageURL = ""
+		}
+		// لو اعتذر، يفضل إلغاء علامة الدخول أيضاً
+		if newStatus == "declined" {
+			guest.CheckedIn = false
+		}
+	}
+
+	// تأكيد يدوي من الأدمن بدون باركود → توليد باركود
+	if newStatus == "confirmed" && guest.QRImageURL == "" {
+		scheme := "http"
+		if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		host := c.Request.Host
+		verifyURL := fmt.Sprintf("%s://%s/verify/%s", scheme, host, guest.Token)
+
+		qrFileName := fmt.Sprintf("%s.png", guest.Token)
+		qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
+		_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
+		if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath); err == nil {
+			guest.QRImageURL = "/public/qrcodes/" + qrFileName
+		}
+	}
+
+	guest.Status = newStatus
+	if err := DB.Save(&guest).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل الحفظ"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "تم التعديل بنجاح",
+		"status_changed": oldStatus != newStatus,
+		"guest":          guest,
+	})
 }
 
 func RenderVerifyPage(c *gin.Context) {
@@ -369,10 +421,17 @@ func APIVerify(c *gin.Context) {
 		return
 	}
 
-	// لو الضيف مش مؤكد حضوره
-	if guest.Status != "confirmed" {
+	// مش مؤكد أو مفيش باركود صالح → ارفض الدخول
+	if guest.Status != "confirmed" || guest.QRImageURL == "" {
+		msg := "هذا الباركود غير صالح للدخول"
+		if guest.Status == "declined" {
+			msg = "تم الاعتذار عن الحضور — الباركود ملغي"
+		} else if guest.Status == "pending" {
+			msg = "الحضور غير مؤكد بعد"
+		}
 		c.JSON(http.StatusOK, gin.H{
-			"success":    true,
+			"success":    false,
+			"error":      msg,
 			"name":       guest.Name,
 			"phone":      guest.Phone,
 			"companions": guest.Companions,
@@ -382,7 +441,6 @@ func APIVerify(c *gin.Context) {
 		return
 	}
 
-	// لو تم فحصه من قبل
 	if guest.CheckedIn {
 		c.JSON(http.StatusOK, gin.H{
 			"success":    true,
@@ -390,13 +448,12 @@ func APIVerify(c *gin.Context) {
 			"phone":      guest.Phone,
 			"companions": guest.Companions,
 			"status":     guest.Status,
-			"checked_in": true, // ← علامة إنه دخل قبل كده
+			"checked_in": true,
 			"message":    "تم فحص هذا الباركود مسبقاً - هذا المدعو قام بالدخول",
 		})
 		return
 	}
 
-	// أول مرة يتم فحصه → نسجله كـ دخل
 	guest.CheckedIn = true
 	DB.Save(&guest)
 
@@ -406,7 +463,7 @@ func APIVerify(c *gin.Context) {
 		"phone":      guest.Phone,
 		"companions": guest.Companions,
 		"status":     guest.Status,
-		"checked_in": false, // أول مرة
+		"checked_in": false,
 	})
 }
 
@@ -645,8 +702,16 @@ func ImportGuestsExcel(c *gin.Context) {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("⚠️ لم يتم تحميل .env:", err)
+	} else {
+		fmt.Println("✅ تم تحميل .env")
+	}
+	// اطبع للتأكد (بدون طباعة التوكن كامل)
+	t := os.Getenv("WA_CLOUD_TOKEN")
+	fmt.Printf("TOKEN len=%d | PHONE_ID=%s\n", len(t), os.Getenv("WA_PHONE_NUMBER_ID"))
+	
 	ConnectDB()
-
     InitWhatsApp()
 	r := gin.Default()
 
@@ -674,7 +739,10 @@ func main() {
 })
 	r.GET("/invite/:token", RenderInvitePage)
 	r.GET("/ticket/:token", RenderTicketPage)
-
+// Webhook (عام — Meta بتنده)
+    r.GET("/webhook/whatsapp", CloudWebhookVerifyHandler)
+    r.POST("/webhook/whatsapp", CloudWebhookReceiveHandler)
+	
 	api := r.Group("/api")
 	{
 		api.POST("/guests", CreateGuest)
@@ -685,15 +753,6 @@ func main() {
 	// =====================================
 	// المسارات المحمية (بكلمة مرور للأدمن)
 	// =====================================
-	adminAuthScan := r.Group("/", gin.BasicAuth(gin.Accounts{
-	"Yasser Badr": "Yasser.12#",
-}))
-{
-	// تم إصلاح الـ nesting هنا
-	adminAuthScan.GET("/scan", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "scanner.html", gin.H{})
-	})
-}
 
 	adminAuth := r.Group("/", gin.BasicAuth(gin.Accounts{
 	"Yaaser Badr": "Yasser.12#",
@@ -703,6 +762,11 @@ func main() {
 	adminAuth.GET("/admin/add", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "add_guest.html", gin.H{})
 	})
+		// تم إصلاح الـ nesting هنا
+	adminAuth.GET("/scan", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "scanner.html", gin.H{})
+	})
+
 
 	adminAuth.GET("/admin/print/:status", PrintReport)
 	adminAuth.DELETE("/admin/api/guests/:id", DeleteGuestAdmin)
@@ -715,8 +779,12 @@ func main() {
 	adminAuth.POST("/admin/api/guests/bulk-delete", DeleteGuestsBulk)
 
 	adminAuth.GET("/admin/api/whatsapp-status", WhatsAppStatusHandler)
-	adminAuth.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler)
 	adminAuth.POST("/admin/api/whatsapp-logout", LogoutWhatsAppHandler)
+// اختبار إرسال Cloud API (محمي بـ admin)
+    adminAuth.POST("/api/cloud-test-send", CloudTestSendHandler)
+    adminAuth.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler) // whatsmeow
+    adminAuth.POST("/admin/api/broadcast-cloud", BroadcastCloudHandler)       // Cloud
+    adminAuth.POST("/admin/api/cloud-test-send", CloudTestSendHandler)
 
 	adminAuth.GET("/api/verify/:token", APIVerify)
 	adminAuth.GET("/verify/:token", RenderVerifyPage)

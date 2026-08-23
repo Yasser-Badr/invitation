@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>فحص الباركود - بوابة الدخول</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            margin: 0;
+            padding: 15px;
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+            color: #f1c40f;
+        }
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .result-card {
+            display: none;
+            background: white;
+            color: #333;
+            border-radius: 16px;
+            padding: 25px;
+            margin: 20px auto 0;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .result-card.show { display: block; }
+        .status-badge {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: white;
+        }
+        .success { background-color: #27ae60; }
+        .error { background-color: #e74c3c; }
+        .info-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            text-align: right;
+        }
+        .info-box div {
+            margin-bottom: 8px;
+            font-size: 16px;
+            border-bottom: 1px dashed #ddd;
+            padding-bottom: 6px;
+        }
+        .info-box div:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .btn-reset {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: #1b4332;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn-reset:hover { background: #081c15; }
+        .instructions {
+            text-align: center;
+            color: #aaa;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 فحص باركود الدخول</h1>
+    </div>
+
+    <div id="reader"></div>
+    <p class="instructions">وجّه الكاميرا نحو باركود الضيف</p>
+
+    <div id="resultCard" class="result-card">
+        <div id="statusBadge" class="status-badge"></div>
+        <div id="resultContent"></div>
+        <button class="btn-reset" onclick="resetScanner()">مسح ضيف آخر</button>
+    </div>
+
+    <script>
+        let html5QrCode;
+        const resultCard = document.getElementById('resultCard');
+        const statusBadge = document.getElementById('statusBadge');
+        const resultContent = document.getElementById('resultContent');
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // أوقف المسح مؤقتاً
+            html5QrCode.pause(true);
+
+            // استخرج الـ token من اللينك
+            let token = decodedText;
+            try {
+                const url = new URL(decodedText);
+                const parts = url.pathname.split('/');
+                token = parts[parts.length - 1];
+            } catch (e) {
+                // لو مش لينك، استخدم النص كما هو
+            }
+
+            // اطلب البيانات من السيرفر
+            fetch('/api/verify/' + token)
+                .then(res => res.json())
+                .then(data => {
+                    resultCard.classList.add('show');
+
+                    if (!data.success) {
+                        statusBadge.className = 'status-badge error';
+                        statusBadge.style.backgroundColor = '#e74c3c';
+                        statusBadge.innerHTML = '❌ دخول مرفوض';
+                        resultContent.innerHTML = `<p style="color:#e74c3c; font-weight:bold;">${data.error}</p>`;
+                        return;
+                    }
+
+                    // حالة تم الفحص مسبقاً
+                    if (data.checked_in) {
+                        statusBadge.className = 'status-badge error';
+                        statusBadge.style.backgroundColor = '#e67e22'; // برتقالي
+                        statusBadge.innerHTML = '⚠️ تم الفحص مسبقاً';
+                        resultContent.innerHTML = `
+                            <p style="color:#e67e22; font-weight:bold; margin-bottom:15px;">
+                                ${data.message || 'تم فحص هذا الباركود مسبقاً - هذا المدعو قام بالدخول'}
+                            </p>
+                            <div class="info-box">
+                                <div><strong>اسم الضيف:</strong> ${data.name}</div>
+                                <div><strong>رقم الجوال:</strong> ${data.phone}</div>
+                                <div><strong>المرافقين:</strong> ${data.companions}</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    // حالة مؤكد وحاضر لأول مرة
+                    if (data.status === 'confirmed') {
+                        statusBadge.className = 'status-badge success';
+                        statusBadge.style.backgroundColor = '#27ae60';
+                        statusBadge.innerHTML = '✅ مصرح له بالدخول';
+                        resultContent.innerHTML = `
+                            <div class="info-box">
+                                <div><strong>اسم الضيف:</strong> ${data.name}</div>
+                                <div><strong>رقم الجوال:</strong> ${data.phone}</div>
+                                <div><strong>المرافقين المسموح بهم:</strong> ${data.companions}</div>
+                            </div>
+                        `;
+                    } else {
+                        // مش مؤكد
+                        statusBadge.className = 'status-badge error';
+                        statusBadge.style.backgroundColor = '#e74c3c';
+                        statusBadge.innerHTML = '⚠️ غير مصرح';
+                        resultContent.innerHTML = `
+                            <p>هذا الضيف لم يؤكد حضوره أو اعتذر.</p>
+                            <div class="info-box">
+                                <div><strong>الاسم:</strong> ${data.name}</div>
+                                <div><strong>رقم الجوال:</strong> ${data.phone}</div>
+                                <div><strong>الحالة:</strong> ${data.status}</div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    statusBadge.className = 'status-badge error';
+                    statusBadge.style.backgroundColor = '#e74c3c';
+                    statusBadge.innerHTML = '❌ خطأ';
+                    resultContent.innerHTML = '<p>حدث خطأ في الاتصال بالسيرفر</p>';
+                    resultCard.classList.add('show');
+                });
+        }
+
+        function resetScanner() {
+            resultCard.classList.remove('show');
+            html5QrCode.resume();
+        }
+
+        // تشغيل الكاميرا
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        Html5Qrcode.getCameras().then(cameras => {
+            if (cameras && cameras.length) {
+                // نفضل الكاميرا الخلفية
+                let cameraId = cameras[0].id;
+                for (let cam of cameras) {
+                    if (cam.label.toLowerCase().includes('back') || cam.label.toLowerCase().includes('rear')) {
+                        cameraId = cam.id;
+                        break;
+                    }
+                }
+                html5QrCode.start(cameraId, config, onScanSuccess)
+                    .catch(err => {
+                        document.getElementById('reader').innerHTML = 
+                            '<p style="color:#e74c3c; text-align:center;">تعذر تشغيل الكاميرا. تأكد من إعطاء الإذن.</p>';
+                    });
+            } else {
+                document.getElementById('reader').innerHTML = 
+                    '<p style="color:#e74c3c; text-align:center;">لا توجد كاميرا متاحة</p>';
+            }
+        }).catch(err => {
+            document.getElementById('reader').innerHTML = 
+                '<p style="color:#e74c3c; text-align:center;">خطأ في الوصول للكاميرا</p>';
+        });
+    </script>
+</body>
+</html>

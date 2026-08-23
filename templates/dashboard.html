@@ -20,9 +20,7 @@
             --shadow: 0 4px 20px rgba(0,0,0,0.06);
             --radius: 12px;
         }
-
         * { box-sizing: border-box; }
-
         body {
             font-family: 'Segoe UI', Tahoma, 'Arial', sans-serif;
             background: var(--bg);
@@ -31,9 +29,7 @@
             color: var(--text);
             line-height: 1.5;
         }
-
         .container { max-width: 1200px; margin: 0 auto; }
-
         .header-card {
             background: var(--card);
             border-radius: var(--radius);
@@ -46,20 +42,8 @@
             align-items: center;
             gap: 16px;
         }
-
-        .header-card h2 {
-            margin: 0;
-            font-size: 1.4rem;
-            color: var(--primary);
-        }
-
-        .header-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-        }
-
+        .header-card h2 { margin: 0; font-size: 1.4rem; color: var(--primary); }
+        .header-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
         .btn {
             padding: 10px 18px;
             border-radius: 8px;
@@ -75,31 +59,19 @@
             transition: all 0.2s ease;
             white-space: nowrap;
         }
-
         .btn:hover { transform: translateY(-1px); opacity: 0.92; }
-        .btn:active { transform: translateY(0); }
-
         .btn-primary { background: var(--primary); }
-        .btn-primary:hover { background: var(--primary-light); }
         .btn-secondary { background: #f1c40f; color: #333; }
         .btn-success { background: var(--success); }
         .btn-accent { background: var(--accent); }
-        .btn-whatsapp-selected { background: #128C7E; }
-        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger { background: var(--danger); }
         .btn-print { background: #34495e; }
         .btn-purple { background: #8e44ad; }
         .btn-teal { background: #16a085; }
-
+        .btn-wa { background: #128C7E; }
+        .btn-wa-dark { background: #0e7a6d; }
         .btn-sm { padding: 6px 12px; font-size: 12px; }
-
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            overflow-x: auto;
-            padding-bottom: 4px;
-        }
-
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
         .tab-btn {
             padding: 10px 18px;
             background: #e8ecef;
@@ -109,16 +81,9 @@
             font-weight: 600;
             font-size: 13px;
             color: var(--text);
-            transition: all 0.2s;
             white-space: nowrap;
         }
-
-        .tab-btn:hover { background: #dce1e6; }
-        .tab-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
+        .tab-btn.active { background: var(--primary); color: white; }
         .tab-content {
             display: none;
             background: var(--card);
@@ -126,49 +91,14 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
         }
-
         .tab-content.active { display: block; }
-
-        .toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 16px;
-            align-items: center;
-        }
-
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: center; }
         h2, h3 { color: var(--primary); margin-top: 0; }
-
-        .table-wrap {
-            overflow-x: auto;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 700px;
-        }
-
-        th, td {
-            padding: 12px 10px;
-            text-align: center;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
-            background: var(--primary);
-            color: white;
-            font-weight: 600;
-            font-size: 13px;
-            position: sticky;
-            top: 0;
-        }
-
-        tr:hover td { background: #f8faf9; }
+        .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        th, td { padding: 12px 10px; text-align: center; border-bottom: 1px solid var(--border); }
+        th { background: var(--primary); color: white; font-weight: 600; font-size: 13px; }
         td { font-size: 13px; }
-
         .status {
             display: inline-block;
             font-weight: 600;
@@ -176,11 +106,9 @@
             border-radius: 20px;
             font-size: 11px;
         }
-
         .status-pending { background: #fef3cd; color: #856404; }
         .status-confirmed { background: #d4edda; color: #155724; }
         .status-declined { background: #f8d7da; color: #721c24; }
-
         .modal {
             display: none;
             position: fixed;
@@ -191,7 +119,6 @@
             align-items: center;
             padding: 16px;
         }
-
         .modal-content {
             background: white;
             padding: 24px;
@@ -201,27 +128,10 @@
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-            animation: modalIn 0.25s ease;
         }
-
-        @keyframes modalIn {
-            from { opacity: 0; transform: scale(0.95) translateY(10px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
         .modal-content h3 { margin: 0 0 16px; font-size: 1.15rem; }
-
-        .modal label {
-            display: block;
-            font-weight: 600;
-            font-size: 13px;
-            margin-bottom: 4px;
-            color: var(--text);
-        }
-
-        .modal input,
-        .modal select,
-        .modal textarea {
+        .modal label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+        .modal input, .modal select, .modal textarea {
             width: 100%;
             padding: 10px 12px;
             margin-bottom: 12px;
@@ -229,52 +139,19 @@
             border-radius: 8px;
             font-size: 14px;
             font-family: inherit;
-            transition: border-color 0.2s;
         }
-
-        .modal input:focus,
-        .modal select:focus,
-        .modal textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(27,67,50,0.12);
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 8px;
-        }
-
-        .wa-modal .modal-content {
-            max-width: 480px;
-            text-align: center;
-        }
-
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+        .wa-modal .modal-content { max-width: 480px; text-align: center; }
         .wa-modal h3 { color: var(--accent); }
-
-        .qr-container {
-            margin: 16px 0;
-            display: flex;
-            justify-content: center;
-        }
-
+        .qr-container { margin: 16px 0; display: flex; justify-content: center; }
         .qr-container img {
-            width: 220px;
-            height: 220px;
+            width: 220px; height: 220px;
             border: 3px solid var(--accent);
             border-radius: 14px;
             padding: 10px;
             background: #fdfdfd;
         }
-
-        .wa-hint {
-            font-size: 12px;
-            color: var(--muted);
-            margin: 8px 0;
-        }
-
+        .wa-hint { font-size: 12px; color: var(--muted); margin: 8px 0; }
         .wa-connected-badge {
             display: inline-block;
             background: #d4edda;
@@ -285,7 +162,6 @@
             font-weight: 600;
             margin-bottom: 12px;
         }
-
         .wa-selected-badge {
             display: inline-block;
             background: #e3f2fd;
@@ -296,38 +172,57 @@
             font-weight: 600;
             margin-bottom: 10px;
         }
-
         .wa-section { text-align: right; }
-
-        .wa-divider {
-            border-top: 1px solid var(--border);
-            margin: 18px 0 14px;
-            padding-top: 14px;
+        .wa-divider { border-top: 1px solid var(--border); margin: 18px 0 14px; padding-top: 14px; }
+        .empty-row td { padding: 28px; color: var(--muted); }
+        .toolbar-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 18px;
         }
-
-        .empty-row td {
-            padding: 28px;
+        .toolbar-group {
+            background: #f8faf9;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .toolbar-group.cloud-group {
+            background: #e8f8f5;
+            border-color: #b2dfdb;
+        }
+        .toolbar-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
             color: var(--muted);
+            margin-bottom: 8px;
         }
-
+        .cloud-group .toolbar-label { color: #0d9488; }
+        .toolbar-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
         @media (max-width: 600px) {
             body { padding: 10px; }
             .header-card { padding: 16px; }
-            .header-card h2 { font-size: 1.15rem; }
             .btn { padding: 9px 14px; font-size: 12px; }
-            .tab-content { padding: 14px; }
+            .toolbar-btns .btn {
+                flex: 1 1 auto;
+                justify-content: center;
+                min-width: 140px;
+            }
         }
     </style>
 </head>
 <body>
-
 <div class="container">
     <div class="header-card">
         <h2>لوحة الإدارة والإحصائيات</h2>
         <div class="header-actions">
-            <button class="btn btn-teal" onclick="document.getElementById('excelInput').click()">
-                📥 استيراد Excel
-            </button>
+            <button class="btn btn-teal" onclick="document.getElementById('excelInput').click()">📥 استيراد Excel</button>
             <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="uploadExcel(this)">
             <a href="/admin/add" class="btn btn-primary">➕ إضافة مدعو</a>
             <a href="/scan" class="btn btn-success" target="_blank">📷 فحص الباركود</a>
@@ -342,13 +237,34 @@
         <button class="tab-btn" onclick="openTab('declined', this)">❌ المعتذرين ({{ len .Declined }})</button>
     </div>
 
+    <!-- ===== تاب الكل ===== -->
     <div id="all" class="tab-content active">
-        <div class="toolbar">
-            <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة الكل</a>
-            <button class="btn btn-accent" onclick="openBroadcastModal()">💬 إرسال للجميع</button>
-            <button class="btn btn-whatsapp-selected" onclick="openBroadcastModalSelected()">📲 إرسال للمحددين</button>
-            <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف المحددين</button>
-            <button class="btn btn-danger" style="background:#c0392b;" onclick="deleteAllGuests()">🗑️ حذف الكل</button>
+        <div class="toolbar-groups">
+            <div class="toolbar-group">
+                <span class="toolbar-label">عام</span>
+                <div class="toolbar-btns">
+                    <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة الكل</a>
+                    <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف المحددين</button>
+                    <button class="btn btn-danger" style="background:#c0392b;" onclick="deleteAllGuests()">🗑️ حذف الكل</button>
+                </div>
+            </div>
+            <div class="toolbar-group">
+                <span class="toolbar-label">واتساب (QR)</span>
+                <div class="toolbar-btns">
+                    <button class="btn btn-accent" onclick="openBroadcastModal('classic')">💬 رابط الدعوة</button>
+                    <button class="btn btn-wa" onclick="openBroadcastModal('buttons')">📲 أزرار تأكيد</button>
+                    <button class="btn btn-accent" onclick="openBroadcastModalSelected('classic')">💬 رابط للمحددين</button>
+                    <button class="btn btn-wa-dark" onclick="openBroadcastModalSelected('buttons')">📲 أزرار للمحددين</button>
+                </div>
+            </div>
+            <div class="toolbar-group cloud-group">
+                <span class="toolbar-label">Cloud API</span>
+                <div class="toolbar-btns">
+                    <button class="btn btn-teal" onclick="openCloudModal('classic')">☁️ إرسال نص</button>
+                    <button class="btn btn-teal" onclick="openCloudModal('buttons')">☁️ أزرار تأكيد</button>
+                    <button class="btn btn-teal" onclick="openCloudModalSelected('buttons')">☁️ أزرار للمحددين</button>
+                </div>
+            </div>
         </div>
 
         <div class="table-wrap">
@@ -392,6 +308,7 @@
                                 data-phone="{{.Phone}}"
                                 data-companions="{{.Companions}}"
                                 data-checked="{{.CheckedIn}}"
+                                data-status="{{.Status}}"
                                 onclick="openEditModalFromBtn(this)">تعديل</button>
                             <button class="btn btn-danger btn-sm" onclick="deleteGuest('{{.ID}}')">حذف</button>
                         </td>
@@ -470,6 +387,12 @@
         <input type="text" id="editPhone">
         <label>المرافقين</label>
         <input type="number" id="editCompanions">
+        <label>حالة الحضور</label>
+        <select id="editStatus">
+            <option value="pending">قيد الانتظار</option>
+            <option value="confirmed">مؤكد الحضور</option>
+            <option value="declined">اعتذر</option>
+        </select>
         <label>حالة الدخول</label>
         <select id="editCheckedIn">
             <option value="false">لم يدخل بعد</option>
@@ -482,51 +405,62 @@
     </div>
 </div>
 
-<!-- WhatsApp Broadcast Modal -->
+<!-- WhatsApp whatsmeow Modal -->
 <div id="broadcastModal" class="modal wa-modal">
     <div class="modal-content">
-        <h3>إدارة إرسال الواتساب</h3>
-
+        <h3 id="broadcastTitle">إدارة إرسال الواتساب (QR)</h3>
         <div id="qrSection" style="display:none;">
             <p style="color:#d9534f; font-weight:700; margin:0 0 8px;">⚠️ حساب الواتساب غير متصل</p>
-            <p class="wa-hint">افتح واتساب ← الأجهزة المرتبطة ← امسح الكود التالي</p>
+            <p class="wa-hint">افتح واتساب ← الأجهزة المرتبطة ← امسح الكود</p>
             <div class="qr-container">
                 <img id="waQRCode" src="" alt="جاري تحميل كود الـ QR...">
             </div>
-            <p class="wa-hint">يتحدث الكود تلقائياً. بعد المسح ستظهر لك شاشة الإرسال.</p>
             <button class="btn btn-secondary" style="width:100%; margin-top:8px;" onclick="closeBroadcastModal()">إغلاق</button>
         </div>
-
         <div id="msgSection" style="display:none;" class="wa-section">
             <div style="text-align:center;">
-                <span class="wa-connected-badge">✅ الحساب متصل وجاهز للإرسال</span>
+                <span class="wa-connected-badge">✅ whatsmeow متصل وجاهز للإرسال</span>
                 <div id="selectedInfo" class="wa-selected-badge" style="display:none;"></div>
             </div>
-
-            <p class="wa-hint" style="text-align:right;">
-                استخدم <b>{name}</b> لاسم المدعو و <b>{link}</b> لرابط الدعوة.
-            </p>
-
+            <p class="wa-hint" style="text-align:right;" id="broadcastHint">استخدم <b>{name}</b> و <b>{link}</b>.</p>
             <label>نص الرسالة</label>
-            <textarea id="broadcastMsg" rows="5"
-                placeholder="أهلاً {name}، نتشرف بدعوتك لحضور حفل زفافنا..."></textarea>
-
+            <textarea id="broadcastMsg" rows="5" placeholder="أهلاً {name}..."></textarea>
             <label>مرفق (صورة أو PDF) — اختياري</label>
             <input type="file" id="broadcastMedia" accept="image/*,.pdf">
-            <p class="wa-hint">يفضل صورة أقل من 3 ميجا أو ملف PDF</p>
-
             <div class="modal-actions" style="margin-top:14px;">
                 <button class="btn btn-secondary" onclick="closeBroadcastModal()">إلغاء</button>
-                <button class="btn btn-accent" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال الآن</button>
+                <button class="btn btn-accent" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال whatsmeow</button>
             </div>
-
             <div class="wa-divider">
-                <button class="btn btn-danger" style="width:100%;" onclick="logoutWhatsApp()">
-                    🔌 فصل الحساب الحالي (تغيير الحساب)
-                </button>
-                <p class="wa-hint" style="text-align:center; margin-top:8px;">
-                    استخدم هذا الزر لربط حساب واتساب مختلف
-                </p>
+                <button class="btn btn-danger" style="width:100%;" onclick="logoutWhatsApp()">🔌 فصل الحساب (تغيير الحساب)</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cloud API Modal -->
+<div id="cloudModal" class="modal wa-modal">
+    <div class="modal-content">
+        <h3 style="color:#16a085;">إرسال عبر Cloud API</h3>
+        <div id="cloudNotReady" style="display:none;">
+            <p style="color:#c0392b; font-weight:700;">⚠️ Cloud غير مضبوط</p>
+            <p class="wa-hint">راجع ملف .env (WA_CLOUD_TOKEN و WA_PHONE_NUMBER_ID)</p>
+            <button class="btn btn-secondary" style="width:100%;" onclick="closeCloudModal()">إغلاق</button>
+        </div>
+        <div id="cloudReady" style="display:none;" class="wa-section">
+            <div style="text-align:center;">
+                <span class="wa-connected-badge">✅ Cloud API جاهز — بدون مسح QR</span>
+                <div id="cloudSelectedInfo" class="wa-selected-badge" style="display:none;"></div>
+            </div>
+            <p class="wa-hint" style="text-align:right;">استخدم <b>{name}</b> و <b>{link}</b> و <b>{companions}</b>.</p>
+            <label>نص الرسالة</label>
+            <textarea id="cloudMsg" rows="5" placeholder="أهلاً {name}..."></textarea>
+            <label>صورة مرفقة (اختياري)</label>
+            <input type="file" id="cloudMedia" accept="image/*">
+            <p class="wa-hint">صورة أقل من 5 ميجا — تظهر مع نص الرسالة</p>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button class="btn btn-secondary" onclick="closeCloudModal()">إلغاء</button>
+                <button class="btn btn-teal" id="cloudSendBtn" onclick="sendCloudBroadcast()">🚀 إرسال Cloud</button>
             </div>
         </div>
     </div>
@@ -535,28 +469,20 @@
 <script>
 let qrInterval = null;
 let broadcastSelectedOnly = false;
+let broadcastMode = 'classic';
+let cloudSelectedOnly = false;
+let cloudMode = 'buttons';
 
 function logoutWhatsApp() {
-    if (!confirm("هل أنت متأكد من فصل حساب الواتساب الحالي؟\nهتحتاج تمسح QR جديد بحساب تاني.")) {
-        return;
-    }
+    if (!confirm("فصل حساب whatsmeow الحالي؟")) return;
     fetch('/admin/api/whatsapp-logout', { method: 'POST' })
         .then(res => res.json())
         .then(data => {
-            if (data.error) {
-                alert("خطأ: " + data.error);
-            } else {
-                alert(data.message || "تم فصل الحساب بنجاح");
-                checkWhatsAppStatus();
-                if (!qrInterval) {
-                    qrInterval = setInterval(checkWhatsAppStatus, 3000);
-                }
-            }
+            alert(data.error || data.message || "تم");
+            checkWhatsAppStatus();
+            if (!qrInterval) qrInterval = setInterval(checkWhatsAppStatus, 3000);
         })
-        .catch(err => {
-            alert("حدث خطأ أثناء فصل الحساب");
-            console.error(err);
-        });
+        .catch(() => alert("حدث خطأ"));
 }
 
 function uploadExcel(input) {
@@ -566,21 +492,11 @@ function uploadExcel(input) {
     fetch('/admin/api/import-excel', { method: 'POST', body: formData })
     .then(async res => {
         const data = await res.json();
-        if (!res.ok) {
-            alert("خطأ: " + (data.error || "حدث خطأ غير معروف"));
-            return;
-        }
-        let msg = `تم بنجاح: ${data.success_count}\nفشل: ${data.fail_count}`;
-        if (data.errors && data.errors.length > 0) {
-            msg += "\n\nتفاصيل الفشل:\n" + data.errors.join("\n");
-        }
-        alert(msg);
+        if (!res.ok) { alert("خطأ: " + (data.error || "")); return; }
+        alert(`نجاح: ${data.success_count}\nفشل: ${data.fail_count}`);
         location.reload();
     })
-    .catch(err => {
-        alert("حدث خطأ في الاتصال بالسيرفر");
-        console.error(err);
-    });
+    .catch(() => alert("خطأ اتصال"));
     input.value = '';
 }
 
@@ -592,12 +508,11 @@ function openTab(tabId, btn) {
 }
 
 function deleteGuest(id) {
-    if (confirm('هل أنت متأكد من حذف هذا المدعو تماماً من النظام؟')) {
-        fetch('/admin/api/guests/' + id, { method: 'DELETE' })
-            .then(res => res.json())
-            .then(data => { alert(data.message); location.reload(); })
-            .catch(() => alert("حدث خطأ"));
-    }
+    if (!confirm('حذف هذا المدعو؟')) return;
+    fetch('/admin/api/guests/' + id, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => { alert(data.message); location.reload(); })
+        .catch(() => alert("حدث خطأ"));
 }
 
 function openEditModalFromBtn(btn) {
@@ -605,13 +520,11 @@ function openEditModalFromBtn(btn) {
     document.getElementById('editName').value = btn.getAttribute('data-name');
     document.getElementById('editPhone').value = btn.getAttribute('data-phone');
     document.getElementById('editCompanions').value = btn.getAttribute('data-companions');
-    document.getElementById('editCheckedIn').value = btn.getAttribute('data-checked') === 'true' ? "true" : "false";
+    document.getElementById('editCheckedIn').value = btn.getAttribute('data-checked') === 'true' ? 'true' : 'false';
+    document.getElementById('editStatus').value = btn.getAttribute('data-status') || 'pending';
     document.getElementById('editModal').style.display = 'flex';
 }
-
-function closeModal() {
-    document.getElementById('editModal').style.display = 'none';
-}
+function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
 function saveEdit() {
     const id = document.getElementById('editId').value;
@@ -619,7 +532,8 @@ function saveEdit() {
         name: document.getElementById('editName').value,
         phone: document.getElementById('editPhone').value,
         companions: parseInt(document.getElementById('editCompanions').value) || 0,
-        checked_in: document.getElementById('editCheckedIn').value === "true"
+        checked_in: document.getElementById('editCheckedIn').value === 'true',
+        status: document.getElementById('editStatus').value
     };
     fetch('/admin/api/guests/' + id, {
         method: 'PUT',
@@ -627,23 +541,24 @@ function saveEdit() {
         body: JSON.stringify(data)
     })
     .then(res => res.json())
-    .then(() => { alert("تم التعديل بنجاح"); location.reload(); })
-    .catch(() => alert("حدث خطأ أثناء التعديل"));
+    .then(data => {
+        if (data.error) alert('خطأ: ' + data.error);
+        else {
+            alert(data.message || 'تم التعديل');
+            location.reload();
+        }
+    })
+    .catch(() => alert('خطأ'));
 }
 
 function toggleSelectAll(source) {
-    document.querySelectorAll('.guest-checkbox').forEach(cb => {
-        cb.checked = source.checked;
-    });
+    document.querySelectorAll('.guest-checkbox').forEach(cb => { cb.checked = source.checked; });
 }
 
 function deleteSelected() {
     const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert("يجب تحديد مدعو واحد على الأقل");
-        return;
-    }
-    if (!confirm(`هل أنت متأكد من حذف ${checkboxes.length} مدعو؟`)) return;
+    if (checkboxes.length === 0) { alert("حدد مدعو واحد على الأقل"); return; }
+    if (!confirm(`حذف ${checkboxes.length} مدعو؟`)) return;
     const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
     fetch('/admin/api/guests/bulk-delete', {
         method: 'POST',
@@ -651,164 +566,200 @@ function deleteSelected() {
         body: JSON.stringify({ ids: ids })
     })
     .then(res => res.json())
-    .then(data => {
-        alert(data.message || "تم الحذف");
-        location.reload();
-    })
-    .catch(() => alert("حدث خطأ أثناء الحذف"));
+    .then(data => { alert(data.message || "تم"); location.reload(); })
+    .catch(() => alert("خطأ"));
 }
 
 function deleteAllGuests() {
-    if (!confirm("تحذير: سيتم حذف جميع المدعوين نهائياً. هل أنت متأكد؟")) return;
-    if (!confirm("تأكيد نهائي: هل تريد حذف الكل؟")) return;
-    const allCheckboxes = document.querySelectorAll('.guest-checkbox');
-    const ids = Array.from(allCheckboxes).map(cb => parseInt(cb.value));
-    if (ids.length === 0) {
-        alert("لا يوجد مدعوين للحذف");
-        return;
-    }
+    if (!confirm("حذف جميع المدعوين؟")) return;
+    if (!confirm("تأكيد نهائي؟")) return;
+    const ids = Array.from(document.querySelectorAll('.guest-checkbox')).map(cb => parseInt(cb.value));
+    if (ids.length === 0) { alert("لا يوجد مدعوين"); return; }
     fetch('/admin/api/guests/bulk-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: ids })
     })
     .then(res => res.json())
-    .then(data => {
-        alert(data.message || "تم حذف الجميع");
-        location.reload();
-    })
-    .catch(() => alert("حدث خطأ أثناء الحذف"));
+    .then(data => { alert(data.message || "تم"); location.reload(); })
+    .catch(() => alert("خطأ"));
 }
 
-function openBroadcastModal() {
+/* ===== whatsmeow ===== */
+function openBroadcastModal(mode) {
     broadcastSelectedOnly = false;
-    const info = document.getElementById('selectedInfo');
-    info.style.display = 'none';
+    broadcastMode = mode || 'classic';
+    updateBroadcastUI();
     document.getElementById('broadcastModal').style.display = 'flex';
     checkWhatsAppStatus();
     qrInterval = setInterval(checkWhatsAppStatus, 3000);
 }
-
-function openBroadcastModalSelected() {
+function openBroadcastModalSelected(mode) {
     const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert("يجب تحديد مدعو واحد على الأقل");
-        return;
-    }
+    if (checkboxes.length === 0) { alert("حدد مدعو واحد على الأقل"); return; }
     broadcastSelectedOnly = true;
-    const info = document.getElementById('selectedInfo');
-    info.style.display = 'inline-block';
-    info.textContent = 'سيتم الإرسال إلى ' + checkboxes.length + ' مدعو محدد';
+    broadcastMode = mode || 'classic';
+    updateBroadcastUI();
     document.getElementById('broadcastModal').style.display = 'flex';
     checkWhatsAppStatus();
     qrInterval = setInterval(checkWhatsAppStatus, 3000);
 }
-
+function updateBroadcastUI() {
+    const title = document.getElementById('broadcastTitle');
+    const hint = document.getElementById('broadcastHint');
+    const info = document.getElementById('selectedInfo');
+    if (broadcastMode === 'buttons') {
+        title.textContent = 'أزرار واتساب (whatsmeow / QR)';
+        hint.innerHTML = 'أزرار تأكيد / اعتذار عبر whatsmeow. استخدم <b>{name}</b>.';
+    } else {
+        title.textContent = 'رابط الدعوة (whatsmeow / QR)';
+        hint.innerHTML = 'استخدم <b>{name}</b> و <b>{link}</b>.';
+    }
+    if (broadcastSelectedOnly) {
+        info.style.display = 'inline-block';
+        info.textContent = 'إرسال إلى ' + document.querySelectorAll('.guest-checkbox:checked').length + ' مدعو';
+    } else {
+        info.style.display = 'none';
+    }
+}
 function closeBroadcastModal() {
     document.getElementById('broadcastModal').style.display = 'none';
-    if (qrInterval) {
-        clearInterval(qrInterval);
-        qrInterval = null;
-    }
+    if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
 }
-
 function checkWhatsAppStatus() {
     fetch('/admin/api/whatsapp-status')
-        .then(res => {
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.json();
-        })
+        .then(res => res.json())
         .then(data => {
             const qrSection = document.getElementById('qrSection');
             const msgSection = document.getElementById('msgSection');
             const qrImage = document.getElementById('waQRCode');
-
             if (data.connected) {
                 qrSection.style.display = 'none';
                 msgSection.style.display = 'block';
-                if (qrInterval) {
-                    clearInterval(qrInterval);
-                    qrInterval = null;
-                }
+                if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
             } else {
                 msgSection.style.display = 'none';
                 qrSection.style.display = 'block';
-                if (data.qr && data.qr !== "") {
+                if (data.qr) {
                     qrImage.src = data.qr;
-                    qrImage.alt = "امسح هذا الكود بواتساب";
+                    qrImage.alt = "امسح هذا الكود";
                 } else {
                     qrImage.src = "";
-                    qrImage.alt = "جاري تحميل كود الـ QR...";
+                    qrImage.alt = "جاري تحميل QR...";
                 }
             }
         })
-        .catch(err => console.error("خطأ في فحص حالة الواتساب:", err));
+        .catch(err => console.error(err));
 }
-
 function sendBroadcast() {
     const msgText = document.getElementById('broadcastMsg').value;
-    if (!msgText.trim()) {
-        alert("يرجى كتابة نص الرسالة أولاً");
-        return;
-    }
-
+    if (!msgText.trim()) { alert("اكتب نص الرسالة"); return; }
     const btn = document.getElementById('sendBtn');
     btn.innerText = "جاري الإرسال...";
     btn.disabled = true;
-
     const formData = new FormData();
     formData.append('message_text', msgText);
-
+    formData.append('send_mode', broadcastMode);
     if (broadcastSelectedOnly) {
-        const ids = Array.from(document.querySelectorAll('.guest-checkbox:checked'))
-            .map(cb => cb.value)
-            .join(',');
-        formData.append('guest_ids', ids);
+        formData.append('guest_ids', Array.from(document.querySelectorAll('.guest-checkbox:checked')).map(cb => cb.value).join(','));
     }
-
     const mediaInput = document.getElementById('broadcastMedia');
-    if (mediaInput.files && mediaInput.files[0]) {
-        formData.append('media', mediaInput.files[0]);
-    }
-
-    fetch('/admin/api/broadcast-whatsapp', {
-        method: 'POST',
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            alert("خطأ: " + data.error);
-        } else {
-            alert(data.message || "تم الإرسال بنجاح");
-            closeBroadcastModal();
-            document.getElementById('broadcastMsg').value = '';
-            document.getElementById('broadcastMedia').value = '';
-            broadcastSelectedOnly = false;
-        }
-    })
-    .catch(err => {
-        alert("حدث خطأ أثناء الاتصال بالسيرفر");
-        console.error(err);
-    })
-    .finally(() => {
-        btn.innerText = "🚀 إرسال الآن";
-        btn.disabled = false;
-    });
+    if (mediaInput.files && mediaInput.files[0]) formData.append('media', mediaInput.files[0]);
+    fetch('/admin/api/broadcast-whatsapp', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) alert("خطأ: " + data.error);
+            else {
+                alert(data.message || "تم");
+                closeBroadcastModal();
+                document.getElementById('broadcastMsg').value = '';
+                document.getElementById('broadcastMedia').value = '';
+                broadcastSelectedOnly = false;
+            }
+        })
+        .catch(() => alert("خطأ اتصال"))
+        .finally(() => { btn.innerText = "🚀 إرسال whatsmeow"; btn.disabled = false; });
 }
 
-document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.style.display = 'none';
-            if (this.id === 'broadcastModal' && qrInterval) {
-                clearInterval(qrInterval);
-                qrInterval = null;
+/* ===== Cloud API ===== */
+function openCloudModal(mode) {
+    cloudSelectedOnly = false;
+    cloudMode = mode || 'buttons';
+    document.getElementById('cloudSelectedInfo').style.display = 'none';
+    document.getElementById('cloudModal').style.display = 'flex';
+    checkCloudReady();
+}
+function openCloudModalSelected(mode) {
+    const n = document.querySelectorAll('.guest-checkbox:checked').length;
+    if (n === 0) { alert('حدد مدعو واحد على الأقل'); return; }
+    cloudSelectedOnly = true;
+    cloudMode = mode || 'buttons';
+    document.getElementById('cloudSelectedInfo').style.display = 'inline-block';
+    document.getElementById('cloudSelectedInfo').textContent = 'إرسال إلى ' + n + ' مدعو';
+    document.getElementById('cloudModal').style.display = 'flex';
+    checkCloudReady();
+}
+function closeCloudModal() {
+    document.getElementById('cloudModal').style.display = 'none';
+}
+function checkCloudReady() {
+    fetch('/admin/api/whatsapp-status')
+        .then(r => r.json())
+        .then(data => {
+            if (data.cloud_ok) {
+                document.getElementById('cloudNotReady').style.display = 'none';
+                document.getElementById('cloudReady').style.display = 'block';
+            } else {
+                document.getElementById('cloudReady').style.display = 'none';
+                document.getElementById('cloudNotReady').style.display = 'block';
             }
-        }
-    });
-});
-</script>
+        })
+        .catch(() => {
+            document.getElementById('cloudReady').style.display = 'none';
+            document.getElementById('cloudNotReady').style.display = 'block';
+        });
+}
+function sendCloudBroadcast() {
+    const msg = document.getElementById('cloudMsg').value;
+    if (!msg.trim()) {
+        alert('اكتب نص الرسالة');
+        return;
+    }
+    const btn = document.getElementById('cloudSendBtn');
+    btn.disabled = true;
+    btn.innerText = 'جاري الإرسال...';
 
+    const fd = new FormData();
+    fd.append('message_text', msg);
+    fd.append('send_mode', cloudMode);
+    if (cloudSelectedOnly) {
+        const ids = Array.from(document.querySelectorAll('.guest-checkbox:checked'))
+            .map(c => c.value).join(',');
+        fd.append('guest_ids', ids);
+    }
+    const mediaInput = document.getElementById('cloudMedia');
+    if (mediaInput && mediaInput.files && mediaInput.files[0]) {
+        fd.append('media', mediaInput.files[0]);
+    }
+
+    fetch('/admin/api/broadcast-cloud', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) alert('خطأ: ' + data.error);
+            else {
+                alert(data.message || 'تم');
+                closeCloudModal();
+                document.getElementById('cloudMsg').value = '';
+                if (mediaInput) mediaInput.value = '';
+                cloudSelectedOnly = false;
+            }
+        })
+        .catch(() => alert('خطأ اتصال'))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = '🚀 إرسال Cloud';
+        });
+}
+</script>
 </body>
 </html>

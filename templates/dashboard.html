@@ -719,12 +719,14 @@ function checkCloudReady() {
             document.getElementById('cloudNotReady').style.display = 'block';
         });
 }
+
 function sendCloudBroadcast() {
     const msg = document.getElementById('cloudMsg').value;
     if (!msg.trim()) {
         alert('اكتب نص الرسالة');
         return;
     }
+
     const btn = document.getElementById('cloudSendBtn');
     btn.disabled = true;
     btn.innerText = 'جاري الإرسال...';
@@ -732,11 +734,21 @@ function sendCloudBroadcast() {
     const fd = new FormData();
     fd.append('message_text', msg);
     fd.append('send_mode', cloudMode);
+
     if (cloudSelectedOnly) {
         const ids = Array.from(document.querySelectorAll('.guest-checkbox:checked'))
-            .map(c => c.value).join(',');
-        fd.append('guest_ids', ids);
+            .map(c => c.value)
+            .filter(Boolean);
+        if (ids.length === 0) {
+            alert('لم يتم تحديد أي مدعو');
+            btn.disabled = false;
+            btn.innerText = '🚀 إرسال Cloud';
+            return;
+        }
+        fd.append('selected_only', '1');
+        fd.append('guest_ids', ids.join(','));
     }
+
     const mediaInput = document.getElementById('cloudMedia');
     if (mediaInput && mediaInput.files && mediaInput.files[0]) {
         fd.append('media', mediaInput.files[0]);

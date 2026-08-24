@@ -103,47 +103,7 @@ func CloudSendText(to string, message string) error {
 // ---------- إرسال أزرار تأكيد / اعتذار (Interactive) ----------
 // ملاحظة: الرسائل التفاعلية الحرة تشتغل غالباً داخل نافذة 24 ساعة
 // بعد ما العميل يراسلك، أو بعد Template. للدعوة الأولى استخدم Template.
-func CloudSendButtons(to string, body string) error {
-	to = cloudNormalizePhone(to)
-	payload := map[string]interface{}{
-		"messaging_product": "whatsapp",
-		"recipient_type":    "individual",
-		"to":                to,
-		"type":              "interactive",
-		"interactive": map[string]interface{}{
-			"type": "button",
-			"body": map[string]interface{}{
-				"text": body,
-			},
-			"action": map[string]interface{}{
-				"buttons": []map[string]interface{}{
-					{
-						"type": "reply",
-						"reply": map[string]interface{}{
-							"id":    "confirm",
-							"title": "تأكيد",
-						},
-					},
-					{
-						"type": "reply",
-						"reply": map[string]interface{}{
-							"id":    "decline",
-							"title": "اعتذار",
-						},
-					},
-					{
-						"type": "reply",
-						"reply": map[string]interface{}{
-							"id":    "location",
-							"title": "لوكيشن 📍",
-						},
-					},
-				},
-			},
-		},
-	}
-	return cloudSend(payload)
-}
+
 // ---------- إرسال صورة برابط ----------
 func CloudSendImageByURL(to string, imageURL string, caption string) error {
 	to = cloudNormalizePhone(to)
@@ -360,6 +320,205 @@ func CloudWebhookReceiveHandler(c *gin.Context) {
 
 	c.Status(http.StatusOK)
 }
+
+// ===================== whatsapp_cloud.go =====================
+
+// رقم واتساب الإدارة من .env (مثال: 2010XXXXXXXX)
+func adminWhatsAppURL() string {
+	phone := strings.TrimSpace(os.Getenv("WA_ADMIN_PHONE"))
+	phone = strings.ReplaceAll(phone, "+", "")
+	phone = strings.ReplaceAll(phone, " ", "")
+	phone = strings.ReplaceAll(phone, "-", "")
+	if phone == "" {
+		return ""
+	}
+	return "https://wa.me/" + phone
+}
+
+// دعوة: صورة + نص + أزرار (تأكيد / اعتذار / تواصل) — رسالة واحدة
+func CloudSendInvite(to, body, imageURL string) error {
+	to = cloudNormalizePhone(to)
+
+	buttons := []map[string]interface{}{
+		{
+			"type": "reply",
+			"reply": map[string]interface{}{
+				"id":    "confirm",
+				"title": "تأكيد",
+			},
+		},
+		{
+			"type": "reply",
+			"reply": map[string]interface{}{
+				"id":    "decline",
+				"title": "اعتذار",
+			},
+		},
+		{
+			"type": "reply",
+			"reply": map[string]interface{}{
+				"id":    "contact",
+				"title": "💬 تواصل",
+			},
+		},
+	}
+
+	interactive := map[string]interface{}{
+		"type": "button",
+		"body": map[string]interface{}{
+			"text": body,
+		},
+		"action": map[string]interface{}{
+			"buttons": buttons,
+		},
+	}
+
+	if strings.TrimSpace(imageURL) != "" {
+		interactive["header"] = map[string]interface{}{
+			"type": "image",
+			"image": map[string]interface{}{
+				"link": imageURL,
+			},
+		}
+	}
+
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"recipient_type":    "individual",
+		"to":                to,
+		"type":              "interactive",
+		"interactive":       interactive,
+	}
+	return cloudSend(payload)
+}
+
+// أزرار فقط بدون صورة (للتوافق مع الكود القديم)
+func CloudSendButtons(to string, body string) error {
+	return CloudSendInvite(to, body, "")
+}
+
+// بعد التأكيد: باركود + نص + زر فتح الموقع — رسالة واحدة
+func CloudSendQRWithLocation(to, qrImageURL, body, mapsURL string) error {
+	to = cloudNormalizePhone(to)
+
+	if strings.TrimSpace(mapsURL) == "" {
+		return CloudSendImageByURL(to, qrImageURL, body)
+	}
+
+	interactive := map[string]interface{}{
+		"type": "cta_url",
+		"body": map[string]interface{}{
+			"text": body,
+		},
+		"action": map[string]interface{}{
+			"name": "cta_url",
+			"parameters": map[string]interface{}{
+				"display_text": "📍 فتح الموقع",
+				"url":          mapsURL,
+			},
+		},
+	}
+
+	if strings.TrimSpace(qrImageURL) != "" {
+		interactive["header"] = map[string]interface{}{
+			"type": "image",
+			"image": map[string]interface{}{
+				"link": qrImageURL,
+			},
+		}
+	}
+
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"recipient_type":    "individual",
+		"to":                to,
+		"type":              "interactive",
+		"interactive":       interactive,
+	}
+	return cloudSend(payload)
+}
+
+// زر يفتح واتساب الإدارة
+func CloudSendContactAdmin(to, body string) error {
+	to = cloudNormalizePhone(to)
+	waURL := adminWhatsAppURL()
+	if waURL == "" {
+		if body == "" {
+			body = "للتواصل مع الإدارة راسلنا على واتساب."
+		}
+		return CloudSendText(to, body)
+	}
+	if body == "" {
+		body = "للتواصل مع الإدارة اضغط الزر 👇"
+	}
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"recipient_type":    "individual",
+		"to":                to,
+		"type":              "interactive",
+		"interactive": map[string]interface{}{
+			"type": "cta_url",
+			"body": map[string]interface{}{
+				"text": body,
+			},
+			"action": map[string]interface{}{
+				"name": "cta_url",
+				"parameters": map[string]interface{}{
+					"display_text": "💬 واتساب الإدارة",
+					"url":          waURL,
+				},
+			},
+		},
+	}
+	return cloudSend(payload)
+}
+
+// إرسال موقع (دبوس)
+func CloudSendLocation(to string, lat, lng float64, name, address string) error {
+	to = cloudNormalizePhone(to)
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"to":                to,
+		"type":              "location",
+		"location": map[string]interface{}{
+			"latitude":  lat,
+			"longitude": lng,
+			"name":      name,
+			"address":   address,
+		},
+	}
+	return cloudSend(payload)
+}
+
+// زر يفتح رابط الخرائط
+func CloudSendLocationLink(to string, mapsURL string, body string) error {
+	to = cloudNormalizePhone(to)
+	if body == "" {
+		body = "اضغط الزر لفتح موقع القاعة على الخريطة 📍"
+	}
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"recipient_type":    "individual",
+		"to":                to,
+		"type":              "interactive",
+		"interactive": map[string]interface{}{
+			"type": "cta_url",
+			"body": map[string]interface{}{
+				"text": body,
+			},
+			"action": map[string]interface{}{
+				"name": "cta_url",
+				"parameters": map[string]interface{}{
+					"display_text": "فتح الموقع",
+					"url":          mapsURL,
+				},
+			},
+		},
+	}
+	return cloudSend(payload)
+}
+
+// بث Cloud — كامل
 func BroadcastCloudHandler(c *gin.Context) {
 	if cloudToken() == "" || cloudPhoneNumberID() == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cloud API غير مضبوط — راجع ملف .env"})
@@ -377,7 +536,7 @@ func BroadcastCloudHandler(c *gin.Context) {
 		sendMode = "buttons"
 	}
 
-	// ----- مرفق صورة (اختياري) -----
+	// ----- صورة اختيارية -----
 	var imagePublicURL string
 	fileHeader, err := c.FormFile("media")
 	if err == nil && fileHeader != nil {
@@ -390,7 +549,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "حجم الصورة كبير (الحد 5 ميجا)"})
 			return
 		}
-
 		_ = os.MkdirAll("./public/uploads", 0o755)
 		filename := fmt.Sprintf("broadcast_%d%s", time.Now().UnixNano(), ext)
 		savePath := "./public/uploads/" + filename
@@ -398,7 +556,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل حفظ الصورة"})
 			return
 		}
-
 		base := strings.TrimRight(getAppBaseURL(), "/")
 		if base == "" {
 			base = strings.TrimRight(os.Getenv("APP_BASE_URL"), "/")
@@ -407,7 +564,7 @@ func BroadcastCloudHandler(c *gin.Context) {
 		fmt.Printf("📷 صورة البث: %s\n", imagePublicURL)
 	}
 
-    idsStr := c.PostForm("guest_ids")
+	idsStr := c.PostForm("guest_ids")
 	selectedOnly := c.PostForm("selected_only") == "1"
 
 	var guests []Guest
@@ -439,7 +596,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يوجد مدعوين"})
 		return
 	}
-	
 
 	scheme := "http"
 	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
@@ -454,24 +610,15 @@ func BroadcastCloudHandler(c *gin.Context) {
 			continue
 		}
 		inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
-
 		fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
 		fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
 
 		var sendErr error
-
-		if imagePublicURL != "" {
-			// 1) صورة + النص
+		if sendMode == "buttons" {
+			// صورة + نص + أزرار في رسالة واحدة
+			sendErr = CloudSendInvite(g.Phone, fullMessage, imagePublicURL)
+		} else if imagePublicURL != "" {
 			sendErr = CloudSendImageByURL(g.Phone, imagePublicURL, fullMessage)
-			// 2) أزرار: تأكيد / اعتذار / الموقع
-			if sendErr == nil && sendMode == "buttons" {
-				time.Sleep(800 * time.Millisecond)
-				if err2 := CloudSendButtons(g.Phone, "للرد على الدعوة اختر:"); err2 != nil {
-					fmt.Printf("⚠️ الأزرار بعد الصورة فشلت لـ %s: %v\n", g.Name, err2)
-				}
-			}
-		} else if sendMode == "buttons" {
-			sendErr = CloudSendButtons(g.Phone, fullMessage)
 		} else {
 			sendErr = CloudSendText(g.Phone, fullMessage)
 		}
@@ -492,47 +639,36 @@ func BroadcastCloudHandler(c *gin.Context) {
 		"via":           "cloud",
 	})
 }
-// إرسال موقع (دبوس على الخريطة)
-func CloudSendLocation(to string, lat, lng float64, name, address string) error {
-	to = cloudNormalizePhone(to)
-	payload := map[string]interface{}{
-		"messaging_product": "whatsapp",
-		"to":                to,
-		"type":              "location",
-		"location": map[string]interface{}{
-			"latitude":  lat,
-			"longitude": lng,
-			"name":      name,
-			"address":   address,
-		},
-	}
-	return cloudSend(payload)
-}
 
-// زر يفتح رابط الخرائط مباشرة
-func CloudSendLocationLink(to string, mapsURL string, body string) error {
-	to = cloudNormalizePhone(to)
-	if body == "" {
-		body = "اضغط الزر لفتح موقع القاعة على الخريطة 📍"
-	}
-	payload := map[string]interface{}{
-		"messaging_product": "whatsapp",
-		"recipient_type":    "individual",
-		"to":                to,
-		"type":              "interactive",
-		"interactive": map[string]interface{}{
-			"type": "cta_url",
-			"body": map[string]interface{}{
-				"text": body,
-			},
-			"action": map[string]interface{}{
-				"name": "cta_url",
-				"parameters": map[string]interface{}{
-					"display_text": "فتح الموقع",
-					"url":          mapsURL,
-				},
-			},
-		},
-	}
-	return cloudSend(payload)
-}
+// Webhook استقبال — الجزء الخاص بالإجراء داخل الحلقة
+// (ضع هذا بدل switch action القديم)
+/*
+				textNorm := strings.ToLower(strings.TrimSpace(text))
+				action := ""
+				switch {
+				case btnID == "confirm", textNorm == "تأكيد", textNorm == "تاكيد", textNorm == "1":
+					action = "confirm"
+				case btnID == "decline", textNorm == "اعتذار", textNorm == "2":
+					action = "decline"
+				case btnID == "contact", strings.Contains(textNorm, "تواصل"):
+					action = "contact"
+				}
+				if action == "" || from == "" {
+					continue
+				}
+
+				guest, ok := findGuestByPhone(from)
+				if !ok {
+					fmt.Printf("⚠️ Cloud webhook: رقم غير مسجل %s\n", from)
+					continue
+				}
+
+				switch action {
+				case "confirm":
+					processConfirmAttendance(guest)
+				case "decline":
+					processDeclineAttendance(guest)
+				case "contact":
+					_ = CloudSendContactAdmin(from, "اضغط للتواصل مع إدارة الدعوة على واتساب:")
+				}
+*/

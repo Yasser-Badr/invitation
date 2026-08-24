@@ -436,8 +436,10 @@ func getAppBaseURL() string {
 	return "https://invite.cloud-ip.cc"
 }
 
+// ===================== whatsapp.go =====================
+
 func processConfirmAttendance(guest *Guest) {
-	// لو متأكد من قبل وفيه باركود → متبعتش تاني
+	// منع التكرار
 	if guest.Status == "confirmed" && guest.QRImageURL != "" {
 		fmt.Printf("ℹ️ %s مؤكد مسبقاً — تجاهل تكرار التأكيد\n", guest.Name)
 		return
@@ -459,9 +461,7 @@ func processConfirmAttendance(guest *Guest) {
 
 	guest.QRImageURL = "/public/qrcodes/" + qrFileName
 	DB.Save(guest)
-
 	sendQRToGuest(guest)
-	sendLocationAfterConfirm(guest) // دبوس الموقع بعد التأكيد
 }
 
 func sendQRToGuest(guest *Guest) {
@@ -485,17 +485,19 @@ func sendQRToGuest(guest *Guest) {
 		companionsLine,
 	)
 
-	// Cloud أولاً
+	settings := getSettings()
+	mapsURL := strings.TrimSpace(settings.MapsURL)
+	imageURL := getAppBaseURL() + guest.QRImageURL
+
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
-		imageURL := getAppBaseURL() + guest.QRImageURL
-		if err := CloudSendImageByURL(guest.Phone, imageURL, caption); err == nil {
-			fmt.Printf("✅ باركود Cloud → %s\n", guest.Name)
+		if err := CloudSendQRWithLocation(guest.Phone, imageURL, caption, mapsURL); err == nil {
+			fmt.Printf("✅ باركود+موقع Cloud → %s\n", guest.Name)
+			_ = CloudSendContactAdmin(guest.Phone, "لو تحتاج مساعدة، تواصل مع الإدارة:")
 			return
 		}
-		fmt.Printf("⚠️ Cloud image: %v\n", err)
+		fmt.Printf("⚠️ Cloud QR+location: %v\n", err)
 	}
 
-	// whatsmeow احتياطي
 	if err := SendWAImage(guest.Phone, data, caption); err != nil {
 		_ = CloudSendText(guest.Phone, caption)
 		_ = SendWAMessage(guest.Phone, caption+"\n(تعذر إرسال صورة الباركود)")
@@ -505,7 +507,6 @@ func sendQRToGuest(guest *Guest) {
 }
 
 func processDeclineAttendance(guest *Guest) {
-	// حذف ملف الباركود إن وُجد
 	if guest.QRImageURL != "" {
 		_ = os.Remove("." + guest.QRImageURL)
 		guest.QRImageURL = ""
@@ -517,6 +518,7 @@ func processDeclineAttendance(guest *Guest) {
 	msg := fmt.Sprintf("تم تسجيل اعتذارك يا %s 🌸\nمقدرين ظروفك، ونتمنى نشوفك في مناسبات قادمة.", guest.Name)
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		_ = CloudSendText(guest.Phone, msg)
+		_ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
 	} else {
 		_ = SendWAMessage(guest.Phone, msg)
 	}

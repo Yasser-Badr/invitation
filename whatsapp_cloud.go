@@ -354,13 +354,6 @@ func CloudSendInvite(to, body, imageURL string) error {
 				"title": "اعتذار",
 			},
 		},
-		{
-			"type": "reply",
-			"reply": map[string]interface{}{
-				"id":    "contact",
-				"title": "💬 تواصل",
-			},
-		},
 	}
 
 	interactive := map[string]interface{}{
@@ -464,7 +457,7 @@ func CloudSendContactAdmin(to, body string) error {
 			"action": map[string]interface{}{
 				"name": "cta_url",
 				"parameters": map[string]interface{}{
-					"display_text": "💬 واتساب الإدارة",
+					"display_text": "واتساب الإدارة 💬",
 					"url":          waURL,
 				},
 			},

@@ -492,7 +492,7 @@ func sendQRToGuest(guest *Guest) {
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		if err := CloudSendQRWithLocation(guest.Phone, imageURL, caption, mapsURL); err == nil {
 			fmt.Printf("✅ باركود+موقع Cloud → %s\n", guest.Name)
-			_ = CloudSendContactAdmin(guest.Phone, "لو تحتاج مساعدة، تواصل مع الإدارة:")
+			_ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
 			return
 		}
 		fmt.Printf("⚠️ Cloud QR+location: %v\n", err)

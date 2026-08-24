@@ -407,9 +407,11 @@ func BroadcastCloudHandler(c *gin.Context) {
 		fmt.Printf("📷 صورة البث: %s\n", imagePublicURL)
 	}
 
-	idsStr := c.PostForm("guest_ids")
+    idsStr := c.PostForm("guest_ids")
+	selectedOnly := c.PostForm("selected_only") == "1"
+
 	var guests []Guest
-	if strings.TrimSpace(idsStr) != "" {
+	if selectedOnly || strings.TrimSpace(idsStr) != "" {
 		parts := strings.Split(idsStr, ",")
 		var ids []uint
 		for _, p := range parts {
@@ -427,13 +429,17 @@ func BroadcastCloudHandler(c *gin.Context) {
 			return
 		}
 		DB.Where("id IN ?", ids).Find(&guests)
+		fmt.Printf("📤 Cloud للمحددين فقط: %d مدعو | ids=%v\n", len(guests), ids)
 	} else {
 		DB.Find(&guests)
+		fmt.Printf("📤 Cloud للجميع: %d مدعو\n", len(guests))
 	}
+
 	if len(guests) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يوجد مدعوين"})
 		return
 	}
+	
 
 	scheme := "http"
 	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {

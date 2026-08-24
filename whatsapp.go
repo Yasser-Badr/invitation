@@ -437,21 +437,31 @@ func getAppBaseURL() string {
 }
 
 func processConfirmAttendance(guest *Guest) {
+	// لو متأكد من قبل وفيه باركود → متبعتش تاني
+	if guest.Status == "confirmed" && guest.QRImageURL != "" {
+		fmt.Printf("ℹ️ %s مؤكد مسبقاً — تجاهل تكرار التأكيد\n", guest.Name)
+		return
+	}
+
 	guest.Status = "confirmed"
 	baseURL := getAppBaseURL()
 	verifyURL := fmt.Sprintf("%s/verify/%s", baseURL, guest.Token)
 	qrFileName := fmt.Sprintf("%s.png", guest.Token)
 	qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
 	_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
+
 	if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath); err != nil {
 		fmt.Printf("❌ فشل توليد QR لـ %s: %v\n", guest.Name, err)
-		_ = SendWAMessage(guest.Phone, "تم تسجيل تأكيد حضورك ✅\nحدث خطأ في إنشاء الباركود، تواصل مع المنظم.")
+		_ = CloudSendText(guest.Phone, "تم تسجيل تأكيد حضورك ✅\nحدث خطأ في إنشاء الباركود، تواصل مع المنظم.")
 		DB.Save(guest)
 		return
 	}
+
 	guest.QRImageURL = "/public/qrcodes/" + qrFileName
 	DB.Save(guest)
+
 	sendQRToGuest(guest)
+	sendLocationAfterConfirm(guest) // دبوس الموقع بعد التأكيد
 }
 
 func sendQRToGuest(guest *Guest) {
@@ -737,4 +747,34 @@ func LogoutWhatsAppHandler(c *gin.Context) {
 	InitWhatsApp()
 	fmt.Println("🔄 تم فصل الحساب بنجاح. جاهز للربط بحساب جديد.")
 	c.JSON(http.StatusOK, gin.H{"message": "تم فصل الحساب بنجاح. يمكنك الآن مسح QR جديد بحساب آخر."})
+}
+
+func sendLocationAfterConfirm(guest *Guest) {
+	settings := getSettings()
+	name := settings.LocationName
+	if name == "" {
+		name = "موقع القاعة"
+	}
+	address := settings.LocationAddress
+	mapsURL := strings.TrimSpace(settings.MapsURL)
+
+	var lat, lng float64
+	if mapsURL != "" {
+		if n, err := fmt.Sscanf(mapsURL, "https://maps.google.com/?q=%f,%f", &lat, &lng); err == nil && n == 2 {
+			_ = CloudSendLocation(guest.Phone, lat, lng, name, address)
+			return
+		}
+		if n, err := fmt.Sscanf(mapsURL, "https://www.google.com/maps?q=%f,%f", &lat, &lng); err == nil && n == 2 {
+			_ = CloudSendLocation(guest.Phone, lat, lng, name, address)
+			return
+		}
+	}
+
+	if mapsURL != "" {
+		body := name
+		if address != "" {
+			body += "\n" + address
+		}
+		_ = CloudSendLocationLink(guest.Phone, mapsURL, body)
+	}
 }

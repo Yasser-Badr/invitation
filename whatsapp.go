@@ -486,7 +486,7 @@ func sendQRToGuest(guest *Guest) {
 			"📌 | الرجاء حفظ البطاقة لديكم\n"+
 			"📌 | الرجاء إبراز البطاقة عند الدخول\n\n"+
 			"💚✨ حضورك يزيد فرحتنا بهجة وسرورًا\n\n"+
-			"HALA CODE | لإدارة دعوات المناسبات",
+			"_ELCODE | INVITATION لإدارة دعوات المناسبات_",
 		guest.Name,
 		companionsLine,
 	)

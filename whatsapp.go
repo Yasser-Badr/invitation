@@ -480,7 +480,13 @@ func sendQRToGuest(guest *Guest) {
 	}
 
 	caption := fmt.Sprintf(
-		"تم تأكيد حضورك يا %s ✅\nهذه بطاقة الدخول الخاصة بك.\n%s\nأظهر الباركود عند الدخول.",
+		"يا هلا بك يا %s، تم تأكيد حضورك بنجاح.\n\n"+
+			"👥 | عدد المرافقين: %s\n\n"+
+			"🎫 | باركود الدخول الخاصة بكم\n"+
+			"📌 | الرجاء حفظ البطاقة لديكم\n"+
+			"📌 | الرجاء إبراز البطاقة عند الدخول\n\n"+
+			"💚✨ حضورك يزيد فرحتنا بهجة وسرورًا\n\n"+
+			"HALA CODE | لإدارة دعوات المناسبات",
 		guest.Name,
 		companionsLine,
 	)
@@ -665,6 +671,13 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	var wg sync.WaitGroup
 	var successCount, failCount int
 	var mu sync.Mutex
+	type resultItem struct {
+		ID    uint   `json:"id"`
+		Name  string `json:"name"`
+		Phone string `json:"phone"`
+		Error string `json:"error,omitempty"`
+	}
+	var successList, failList []resultItem
 
 	for _, guest := range guests {
 		if strings.TrimSpace(guest.Phone) == "" {
@@ -704,12 +717,16 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 				}
 			}
 
-			mu.Lock()
+mu.Lock()
 			if sendErr != nil {
-				failCount++
+				failList = append(failList, resultItem{
+					ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
+				})
 				fmt.Printf("❌ فشل إرسال لـ %s (%s): %v\n", g.Name, g.Phone, sendErr)
 			} else {
-				successCount++
+				successList = append(successList, resultItem{
+					ID: g.ID, Name: g.Name, Phone: g.Phone,
+				})
 				fmt.Printf("✅ تم الإرسال لـ %s [whatsmeow]\n", g.Name)
 			}
 			mu.Unlock()
@@ -718,10 +735,14 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	wg.Wait()
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       fmt.Sprintf("whatsmeow: %d نجح، %d فشل", successCount, failCount),
-		"success_count": successCount,
-		"fail_count":    failCount,
+		"message":       fmt.Sprintf("whatsmeow: %d نجح، %d فشل", len(successList), len(failList)),
+		"success_count": len(successList),
+		"fail_count":    len(failList),
+		"success_list":  successList,
+		"fail_list":     failList,
 		"via":           "whatsmeow",
+		"send_mode":     sendMode,
+		"message_text":  messageText,
 	})
 }
 

@@ -406,7 +406,7 @@ func CloudSendQRWithLocation(to, qrImageURL, body, mapsURL string) error {
 		"action": map[string]interface{}{
 			"name": "cta_url",
 			"parameters": map[string]interface{}{
-				"display_text": "📍 فتح الموقع",
+				"display_text": "📍 فتح اللوكيشن",
 				"url":          mapsURL,
 			},
 		},
@@ -511,7 +511,6 @@ func CloudSendLocationLink(to string, mapsURL string, body string) error {
 	return cloudSend(payload)
 }
 
-// بث Cloud — كامل
 func BroadcastCloudHandler(c *gin.Context) {
 	if cloudToken() == "" || cloudPhoneNumberID() == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cloud API غير مضبوط — راجع ملف .env"})
@@ -529,7 +528,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 		sendMode = "buttons"
 	}
 
-	// ----- صورة اختيارية -----
 	var imagePublicURL string
 	fileHeader, err := c.FormFile("media")
 	if err == nil && fileHeader != nil {
@@ -554,7 +552,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 			base = strings.TrimRight(os.Getenv("APP_BASE_URL"), "/")
 		}
 		imagePublicURL = base + "/public/uploads/" + filename
-		fmt.Printf("📷 صورة البث: %s\n", imagePublicURL)
 	}
 
 	idsStr := c.PostForm("guest_ids")
@@ -579,12 +576,9 @@ func BroadcastCloudHandler(c *gin.Context) {
 			return
 		}
 		DB.Where("id IN ?", ids).Find(&guests)
-		fmt.Printf("📤 Cloud للمحددين فقط: %d مدعو | ids=%v\n", len(guests), ids)
 	} else {
 		DB.Find(&guests)
-		fmt.Printf("📤 Cloud للجميع: %d مدعو\n", len(guests))
 	}
-
 	if len(guests) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يوجد مدعوين"})
 		return
@@ -597,9 +591,17 @@ func BroadcastCloudHandler(c *gin.Context) {
 	host := c.Request.Host
 	baseURL := fmt.Sprintf("%s://%s", scheme, host)
 
-	var successCount, failCount int
+	type resultItem struct {
+		ID    uint   `json:"id"`
+		Name  string `json:"name"`
+		Phone string `json:"phone"`
+		Error string `json:"error,omitempty"`
+	}
+	var successList, failList []resultItem
+
 	for _, g := range guests {
 		if strings.TrimSpace(g.Phone) == "" {
+			failList = append(failList, resultItem{ID: g.ID, Name: g.Name, Phone: g.Phone, Error: "رقم الهاتف فارغ"})
 			continue
 		}
 		inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
@@ -608,8 +610,11 @@ func BroadcastCloudHandler(c *gin.Context) {
 
 		var sendErr error
 		if sendMode == "buttons" {
-			// صورة + نص + أزرار في رسالة واحدة
 			sendErr = CloudSendInvite(g.Phone, fullMessage, imagePublicURL)
+			if sendErr == nil && adminWhatsAppURL() != "" {
+				time.Sleep(600 * time.Millisecond)
+				_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
+			}
 		} else if imagePublicURL != "" {
 			sendErr = CloudSendImageByURL(g.Phone, imagePublicURL, fullMessage)
 		} else {
@@ -617,19 +622,28 @@ func BroadcastCloudHandler(c *gin.Context) {
 		}
 
 		if sendErr != nil {
-			failCount++
+			failList = append(failList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
+			})
 			fmt.Printf("❌ Cloud فشل %s: %v\n", g.Name, sendErr)
 		} else {
-			successCount++
+			successList = append(successList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone,
+			})
 			fmt.Printf("✅ Cloud نجح %s\n", g.Name)
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       fmt.Sprintf("Cloud API: %d نجح، %d فشل", successCount, failCount),
-		"success_count": successCount,
-		"fail_count":    failCount,
+		"message":       fmt.Sprintf("Cloud API: %d نجح، %d فشل", len(successList), len(failList)),
+		"success_count": len(successList),
+		"fail_count":    len(failList),
+		"success_list":  successList,
+		"fail_list":     failList,
 		"via":           "cloud",
+		"send_mode":     sendMode,
+		"message_text":  messageText,
+		"has_media":     imagePublicURL != "",
 	})
 }
 

@@ -668,13 +668,14 @@ function sendBroadcast() {
     fetch('/admin/api/broadcast-whatsapp', { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
-            if (data.error) alert("خطأ: " + data.error);
-            else {
-                alert(data.message || "تم");
-                closeBroadcastModal();
-                document.getElementById('broadcastMsg').value = '';
-                document.getElementById('broadcastMedia').value = '';
-                broadcastSelectedOnly = false;
+            if (data.error) {
+                alert('خطأ: ' + data.error);
+            } else {
+                closeCloudModal();
+                document.getElementById('cloudMsg').value = '';
+                if (mediaInput) mediaInput.value = '';
+                cloudSelectedOnly = false;
+                showSendReport(data);
             }
         })
         .catch(() => alert("خطأ اتصال"))
@@ -756,14 +757,15 @@ function sendCloudBroadcast() {
 
     fetch('/admin/api/broadcast-cloud', { method: 'POST', body: fd })
         .then(r => r.json())
-        .then(data => {
-            if (data.error) alert('خطأ: ' + data.error);
-            else {
-                alert(data.message || 'تم');
+       .then(data => {
+            if (data.error) {
+                alert('خطأ: ' + data.error);
+            } else {
                 closeCloudModal();
                 document.getElementById('cloudMsg').value = '';
                 if (mediaInput) mediaInput.value = '';
                 cloudSelectedOnly = false;
+                showSendReport(data);
             }
         })
         .catch(() => alert('خطأ اتصال'))
@@ -772,6 +774,131 @@ function sendCloudBroadcast() {
             btn.innerText = '🚀 إرسال Cloud';
         });
 }
+
+let lastSendReport = null; // يحفظ آخر نتيجة إرسال
+
+function showSendReport(data) {
+    lastSendReport = data;
+    const via = data.via === 'cloud' ? 'Cloud API' : 'whatsmeow';
+    document.getElementById('reportTitle').textContent = 'تقرير الإرسال — ' + via;
+    document.getElementById('reportSummary').textContent = data.message || '';
+
+    const sList = data.success_list || [];
+    const fList = data.fail_list || [];
+
+    document.getElementById('reportSuccessCount').textContent = sList.length;
+    document.getElementById('reportFailCount').textContent = fList.length;
+
+    const sBox = document.getElementById('reportSuccessBox');
+    const fBox = document.getElementById('reportFailBox');
+    const sEl = document.getElementById('reportSuccessList');
+    const fEl = document.getElementById('reportFailList');
+
+    if (sList.length) {
+        sBox.style.display = 'block';
+        sEl.innerHTML = sList.map(x =>
+            `<div style="padding:4px 0; border-bottom:1px solid #ddd;">\( {x.name || '-'} — <b dir="ltr"> \){x.phone || ''}</b></div>`
+        ).join('');
+    } else {
+        sBox.style.display = 'none';
+        sEl.innerHTML = '';
+    }
+
+    if (fList.length) {
+        fBox.style.display = 'block';
+        fEl.innerHTML = fList.map(x =>
+            `<div style="padding:6px 0; border-bottom:1px solid #eee;">
+                <b>\( {x.name || '-'}</b> — <span dir="ltr"> \){x.phone || ''}</span><br>
+                <span style="color:#c0392b; font-size:12px;">${x.error || 'فشل غير معروف'}</span>
+             </div>`
+        ).join('');
+        document.getElementById('reportResendBtn').style.display = 'inline-flex';
+    } else {
+        fBox.style.display = 'none';
+        fEl.innerHTML = '';
+        document.getElementById('reportResendBtn').style.display = 'none';
+    }
+
+    document.getElementById('reportModal').style.display = 'flex';
+}
+
+function closeReportModal() {
+    document.getElementById('reportModal').style.display = 'none';
+}
+
+function clearSendReport() {
+    lastSendReport = null;
+    document.getElementById('reportSuccessList').innerHTML = '';
+    document.getElementById('reportFailList').innerHTML = '';
+    document.getElementById('reportSuccessBox').style.display = 'none';
+    document.getElementById('reportFailBox').style.display = 'none';
+    document.getElementById('reportResendBtn').style.display = 'none';
+    document.getElementById('reportSummary').textContent = 'تم محو التقرير';
+    closeReportModal();
+}
+
+function resendFailed() {
+    if (!lastSendReport || !(lastSendReport.fail_list || []).length) {
+        alert('لا يوجد فاشلين لإعادة الإرسال');
+        return;
+    }
+    const ids = lastSendReport.fail_list.map(x => x.id).filter(Boolean);
+    if (!ids.length) {
+        alert('لا توجد معرفات صالحة');
+        return;
+    }
+    if (!confirm('إعادة إرسال إلى ' + ids.length + ' مدعو فشل إرسالهم؟\nتأكد أنك عدّلت الأرقام الخاطئة أولاً.')) return;
+
+    const via = lastSendReport.via || 'cloud';
+    const msg = lastSendReport.message_text || document.getElementById('cloudMsg')?.value || document.getElementById('broadcastMsg')?.value || '';
+    if (!msg.trim()) {
+        alert('لا يوجد نص رسالة محفوظ. افتح نافذة الإرسال واكتب النص ثم أعد المحاولة.');
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('message_text', msg);
+    fd.append('send_mode', lastSendReport.send_mode || 'buttons');
+    fd.append('selected_only', '1');
+    fd.append('guest_ids', ids.join(','));
+
+    const url = via === 'whatsmeow'
+        ? '/admin/api/broadcast-whatsapp'
+        : '/admin/api/broadcast-cloud';
+
+    fetch(url, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) alert('خطأ: ' + data.error);
+            else showSendReport(data); // يستبدل التقرير بالجديد
+        })
+        .catch(() => alert('خطأ اتصال'));
+}
+
 </script>
+<!-- تقرير الإرسال -->
+<div id="reportModal" class="modal">
+    <div class="modal-content" style="max-width:560px; text-align:right;">
+        <h3 id="reportTitle" style="color:var(--primary);">تقرير الإرسال</h3>
+        <p id="reportSummary" class="wa-hint"></p>
+
+        <div id="reportSuccessBox" style="display:none; margin-bottom:14px;">
+            <div style="font-weight:700; color:#155724; margin-bottom:6px;">✅ نجح (<span id="reportSuccessCount">0</span>)</div>
+            <div id="reportSuccessList" style="max-height:140px; overflow:auto; background:#f0fff4; border-radius:8px; padding:8px; font-size:13px;"></div>
+        </div>
+
+        <div id="reportFailBox" style="display:none; margin-bottom:14px;">
+            <div style="font-weight:700; color:#721c24; margin-bottom:6px;">❌ فشل (<span id="reportFailCount">0</span>)</div>
+            <div id="reportFailList" style="max-height:180px; overflow:auto; background:#fff5f5; border-radius:8px; padding:8px; font-size:13px;"></div>
+        </div>
+
+        <div class="modal-actions" style="flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="clearSendReport()">محو التقرير</button>
+            <button class="btn btn-danger" id="reportResendBtn" style="display:none;" onclick="resendFailed()">إعادة إرسال للفاشلين</button>
+            <button class="btn btn-primary" onclick="closeReportModal()">إغلاق</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

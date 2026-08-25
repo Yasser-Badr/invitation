@@ -669,7 +669,7 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	baseURL := fmt.Sprintf("%s://%s", scheme, host)
 
 	var wg sync.WaitGroup
-	var successCount, failCount int
+	// var successCount, failCount int
 	var mu sync.Mutex
 	type resultItem struct {
 		ID    uint   `json:"id"`

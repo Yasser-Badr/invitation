@@ -476,7 +476,7 @@ func sendQRToGuest(guest *Guest) {
 
 	companionsLine := "بدون مرافقين"
 	if guest.Companions > 0 {
-		companionsLine = fmt.Sprintf("عدد المرافقين: %d", guest.Companions)
+		companionsLine = fmt.Sprintf("%d", guest.Companions)
 	}
 
 	caption := fmt.Sprintf(
@@ -485,7 +485,7 @@ func sendQRToGuest(guest *Guest) {
 			"🎫 | باركود الدخول الخاصة بكم\n"+
 			"📌 | الرجاء حفظ البطاقة لديكم\n"+
 			"📌 | الرجاء إبراز البطاقة عند الدخول\n\n"+
-			"💚✨ حضورك يزيد فرحتنا بهجة وسرورًا\n\n"+
+			" حضورك يزيد فرحتنا بهجة وسرورًا 💚✨\n\n"+
 			"_ELCODE | INVITATION لإدارة دعوات المناسبات_",
 		guest.Name,
 		companionsLine,
@@ -498,7 +498,7 @@ func sendQRToGuest(guest *Guest) {
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		if err := CloudSendQRWithLocation(guest.Phone, imageURL, caption, mapsURL); err == nil {
 			fmt.Printf("✅ باركود+موقع Cloud → %s\n", guest.Name)
-			_ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
+			// _ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
 			return
 		}
 		fmt.Printf("⚠️ Cloud QR+location: %v\n", err)
@@ -524,7 +524,7 @@ func processDeclineAttendance(guest *Guest) {
 	msg := fmt.Sprintf("تم تسجيل اعتذارك يا %s 🌸\nمقدرين ظروفك، ونتمنى نشوفك في مناسبات قادمة.", guest.Name)
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		_ = CloudSendText(guest.Phone, msg)
-		_ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
+		// _ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
 	} else {
 		_ = SendWAMessage(guest.Phone, msg)
 	}

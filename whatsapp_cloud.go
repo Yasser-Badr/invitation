@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
-	"time"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// إعدادات Cloud API من متغيرات البيئة
 func cloudToken() string {
 	return strings.TrimSpace(os.Getenv("WA_CLOUD_TOKEN"))
 }
@@ -35,7 +34,6 @@ func cloudBaseURL() string {
 	return fmt.Sprintf("https://graph.facebook.com/%s/%s", cloudAPIVersion(), cloudPhoneNumberID())
 }
 
-// إرسال طلب عام لـ Graph API
 func cloudSend(payload map[string]interface{}) error {
 	token := cloudToken()
 	phoneID := cloudPhoneNumberID()
@@ -71,20 +69,17 @@ func cloudSend(payload map[string]interface{}) error {
 	return nil
 }
 
-// تطبيع الرقم للصيغة الدولية بدون +
 func cloudNormalizePhone(phone string) string {
 	phone = strings.TrimSpace(phone)
 	phone = strings.ReplaceAll(phone, "+", "")
 	phone = strings.ReplaceAll(phone, " ", "")
 	phone = strings.ReplaceAll(phone, "-", "")
-	// استخدم نفس normalizePhone لو موجودة عندك
 	if n := normalizePhone(phone); n != "" {
 		return n
 	}
 	return phone
 }
 
-// ---------- إرسال نص ----------
 func CloudSendText(to string, message string) error {
 	to = cloudNormalizePhone(to)
 	payload := map[string]interface{}{
@@ -100,11 +95,6 @@ func CloudSendText(to string, message string) error {
 	return cloudSend(payload)
 }
 
-// ---------- إرسال أزرار تأكيد / اعتذار (Interactive) ----------
-// ملاحظة: الرسائل التفاعلية الحرة تشتغل غالباً داخل نافذة 24 ساعة
-// بعد ما العميل يراسلك، أو بعد Template. للدعوة الأولى استخدم Template.
-
-// ---------- إرسال صورة برابط ----------
 func CloudSendImageByURL(to string, imageURL string, caption string) error {
 	to = cloudNormalizePhone(to)
 	payload := map[string]interface{}{
@@ -118,7 +108,7 @@ func CloudSendImageByURL(to string, imageURL string, caption string) error {
 	}
 	return cloudSend(payload)
 }
-// إرسال فيديو برابط عام
+
 func CloudSendVideoByURL(to string, videoURL string, caption string) error {
 	to = cloudNormalizePhone(to)
 	payload := map[string]interface{}{
@@ -133,9 +123,6 @@ func CloudSendVideoByURL(to string, videoURL string, caption string) error {
 	return cloudSend(payload)
 }
 
-// ---------- إرسال Template (للدعوة الجماعية لاحقاً) ----------
-// اسم القالب مثال: wedding_invite_rsvp
-// بعد موافقة Meta على القالب
 func CloudSendTemplate(to string, templateName string, languageCode string, bodyParams []string) error {
 	to = cloudNormalizePhone(to)
 	if languageCode == "" {
@@ -161,7 +148,7 @@ func CloudSendTemplate(to string, templateName string, languageCode string, body
 			},
 			"components": []map[string]interface{}{
 				{
-					"type": "body",
+					"type":       "body",
 					"parameters": params,
 				},
 			},
@@ -170,11 +157,10 @@ func CloudSendTemplate(to string, templateName string, languageCode string, body
 	return cloudSend(payload)
 }
 
-// ---------- اختبار سريع من الأدمن ----------
 func CloudTestSendHandler(c *gin.Context) {
 	phone := c.PostForm("phone")
 	msg := c.PostForm("message")
-	mode := c.PostForm("mode") // text | buttons
+	mode := c.PostForm("mode")
 
 	if strings.TrimSpace(phone) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "رقم الهاتف مطلوب"})
@@ -198,7 +184,6 @@ func CloudTestSendHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "تم الإرسال عبر Cloud API"})
 }
 
-// ---------- Webhook للتحقق (GET) وللاستقبال (POST) ----------
 func CloudWebhookVerifyHandler(c *gin.Context) {
 	mode := c.Query("hub.mode")
 	token := c.Query("hub.verify_token")
@@ -226,11 +211,10 @@ func CloudWebhookReceiveHandler(c *gin.Context) {
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		c.Status(http.StatusOK) // Meta تحتاج 200 حتى لو حصل خطأ parsing
+		c.Status(http.StatusOK)
 		return
 	}
 
-	// استخراج مبسّط للردود
 	entries, _ := payload["entry"].([]interface{})
 	for _, e := range entries {
 		em, _ := e.(map[string]interface{})
@@ -272,14 +256,14 @@ func CloudWebhookReceiveHandler(c *gin.Context) {
 
 				textNorm := strings.ToLower(strings.TrimSpace(text))
 				action := ""
-                switch {
-                case btnID == "confirm", textNorm == "تأكيد", textNorm == "تاكيد", textNorm == "1":
-	                action = "confirm"
-                case btnID == "decline", textNorm == "اعتذار", textNorm == "2":
-	                action = "decline"
-                case btnID == "location", textNorm =="لوكيشن 📍", strings.Contains(textNorm, "موقع"):
-	                action = "location"
-                }
+				switch {
+				case btnID == "confirm", textNorm == "تأكيد", textNorm == "تاكيد", textNorm == "1":
+					action = "confirm"
+				case btnID == "decline", textNorm == "اعتذار", textNorm == "2":
+					action = "decline"
+				case btnID == "location", textNorm == "لوكيشن 📍", strings.Contains(textNorm, "موقع"):
+					action = "location"
+				}
 				if action == "" || from == "" {
 					continue
 				}
@@ -291,53 +275,49 @@ func CloudWebhookReceiveHandler(c *gin.Context) {
 				}
 
 				switch action {
-                case "confirm":
-	              processConfirmAttendance(guest)
-                case "decline":
-	                processDeclineAttendance(guest)
-                case "location":
-                	settings := getSettings()
-                	name := settings.LocationName
-                	if name == "" {
-                		name = "موقع القاعة"
-                	}
-                	address := settings.LocationAddress
-                	mapsURL := strings.TrimSpace(settings.MapsURL)
-                
-                	// محاولة قراءة إحداثيات من الرابط: ?q=30.0444,31.2357
-                	var lat, lng float64
-                	if mapsURL != "" {
-                		if n, err := fmt.Sscanf(mapsURL, "https://maps.google.com/?q=%f,%f", &lat, &lng); err == nil && n == 2 {
-                			_ = CloudSendLocation(from, lat, lng, name, address)
-                			break
-                		}
-                		if n, err := fmt.Sscanf(mapsURL, "https://www.google.com/maps?q=%f,%f", &lat, &lng); err == nil && n == 2 {
-                			_ = CloudSendLocation(from, lat, lng, name, address)
-                			break
-                		}
-                	}
-                
-                	// لو مفيش إحداثيات: زر يفتح الرابط مباشرة
-                	if mapsURL != "" {
-                		body := name
-                		if address != "" {
-                			body += "\n" + address
-                		}
-                		_ = CloudSendLocationLink(from, mapsURL, body)
-                	} else {
-                		_ = CloudSendText(from, "سيتم إرسال الموقع قريباً.")                
-                			}
+				case "confirm":
+					processConfirmAttendance(guest)
+				case "decline":
+					processDeclineAttendance(guest)
+				case "location":
+					settings := getSettings()
+					name := settings.LocationName
+					if name == "" {
+						name = "موقع القاعة"
+					}
+					address := settings.LocationAddress
+					mapsURL := strings.TrimSpace(settings.MapsURL)
+
+					var lat, lng float64
+					sent := false
+					if mapsURL != "" {
+						if n, err := fmt.Sscanf(mapsURL, "https://maps.google.com/?q=%f,%f", &lat, &lng); err == nil && n == 2 {
+							_ = CloudSendLocation(from, lat, lng, name, address)
+							sent = true
+						} else if n, err := fmt.Sscanf(mapsURL, "https://www.google.com/maps?q=%f,%f", &lat, &lng); err == nil && n == 2 {
+							_ = CloudSendLocation(from, lat, lng, name, address)
+							sent = true
+						}
+					}
+					if !sent {
+						if mapsURL != "" {
+							bodyText := name
+							if address != "" {
+								bodyText += "\n" + address
+							}
+							_ = CloudSendLocationLink(from, mapsURL, bodyText)
+						} else {
+							_ = CloudSendText(from, "سيتم إرسال الموقع قريباً.")
 						}
 					}
 				}
 			}
+		}
+	}
 
 	c.Status(http.StatusOK)
 }
 
-// ===================== whatsapp_cloud.go =====================
-
-// رقم واتساب الإدارة من .env (مثال: 2010XXXXXXXX)
 func adminWhatsAppURL() string {
 	phone := strings.TrimSpace(os.Getenv("WA_ADMIN_PHONE"))
 	phone = strings.ReplaceAll(phone, "+", "")
@@ -349,7 +329,6 @@ func adminWhatsAppURL() string {
 	return "https://wa.me/" + phone
 }
 
-// دعوة: صورة + نص + أزرار (تأكيد / اعتذار / تواصل) — رسالة واحدة
 func CloudSendInvite(to, body, imageURL string) error {
 	to = cloudNormalizePhone(to)
 
@@ -399,12 +378,10 @@ func CloudSendInvite(to, body, imageURL string) error {
 	return cloudSend(payload)
 }
 
-// أزرار فقط بدون صورة (للتوافق مع الكود القديم)
 func CloudSendButtons(to string, body string) error {
 	return CloudSendInvite(to, body, "")
 }
 
-// بعد التأكيد: باركود + نص + زر فتح الموقع — رسالة واحدة
 func CloudSendQRWithLocation(to, qrImageURL, body, mapsURL string) error {
 	to = cloudNormalizePhone(to)
 
@@ -445,7 +422,6 @@ func CloudSendQRWithLocation(to, qrImageURL, body, mapsURL string) error {
 	return cloudSend(payload)
 }
 
-// زر يفتح واتساب الإدارة
 func CloudSendContactAdmin(to, body string) error {
 	to = cloudNormalizePhone(to)
 	waURL := adminWhatsAppURL()
@@ -480,7 +456,6 @@ func CloudSendContactAdmin(to, body string) error {
 	return cloudSend(payload)
 }
 
-// إرسال موقع (دبوس)
 func CloudSendLocation(to string, lat, lng float64, name, address string) error {
 	to = cloudNormalizePhone(to)
 	payload := map[string]interface{}{
@@ -497,7 +472,6 @@ func CloudSendLocation(to string, lat, lng float64, name, address string) error 
 	return cloudSend(payload)
 }
 
-// زر يفتح رابط الخرائط
 func CloudSendLocationLink(to string, mapsURL string, body string) error {
 	to = cloudNormalizePhone(to)
 	if body == "" {
@@ -542,8 +516,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 		sendMode = "buttons"
 	}
 
-//	var imagePublicURL string
-// ----- مرفق صورة أو فيديو (اختياري) -----
 	var mediaPublicURL string
 	var mediaKind string // "image" | "video"
 
@@ -636,18 +608,16 @@ func BroadcastCloudHandler(c *gin.Context) {
 		inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
 		fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
 		fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
-		
-        var sendErr error
+
+		var sendErr error
 		if sendMode == "buttons" {
 			if mediaPublicURL != "" && mediaKind == "video" {
-				// فيديو أولاً ثم الأزرار (الفيديو مش header للأزرار)
 				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
 				if sendErr == nil {
 					time.Sleep(800 * time.Millisecond)
 					sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
 				}
 			} else {
-				// صورة (أو بدون مرفق) + أزرار في رسالة واحدة
 				imgURL := ""
 				if mediaKind == "image" {
 					imgURL = mediaPublicURL
@@ -668,6 +638,19 @@ func BroadcastCloudHandler(c *gin.Context) {
 			sendErr = CloudSendText(g.Phone, fullMessage)
 		}
 
+		if sendErr != nil {
+			failList = append(failList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
+			})
+			fmt.Printf("❌ Cloud فشل %s: %v\n", g.Name, sendErr)
+		} else {
+			successList = append(successList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone,
+			})
+			fmt.Printf("✅ Cloud نجح %s\n", g.Name)
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message":       fmt.Sprintf("Cloud API: %d نجح، %d فشل", len(successList), len(failList)),
 		"success_count": len(successList),
@@ -677,39 +660,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 		"via":           "cloud",
 		"send_mode":     sendMode,
 		"message_text":  messageText,
-		"has_media":     imagePublicURL != "",
+		"has_media":     mediaPublicURL != "",
 	})
 }
-
-// Webhook استقبال — الجزء الخاص بالإجراء داخل الحلقة
-// (ضع هذا بدل switch action القديم)
-/*
-				textNorm := strings.ToLower(strings.TrimSpace(text))
-				action := ""
-				switch {
-				case btnID == "confirm", textNorm == "تأكيد", textNorm == "تاكيد", textNorm == "1":
-					action = "confirm"
-				case btnID == "decline", textNorm == "اعتذار", textNorm == "2":
-					action = "decline"
-				case btnID == "contact", strings.Contains(textNorm, "تواصل"):
-					action = "contact"
-				}
-				if action == "" || from == "" {
-					continue
-				}
-
-				guest, ok := findGuestByPhone(from)
-				if !ok {
-					fmt.Printf("⚠️ Cloud webhook: رقم غير مسجل %s\n", from)
-					continue
-				}
-
-				switch action {
-				case "confirm":
-					processConfirmAttendance(guest)
-				case "decline":
-					processDeclineAttendance(guest)
-				case "contact":
-					_ = CloudSendContactAdmin(from, "اضغط للتواصل مع إدارة الدعوة على واتساب:")
-				}
-*/

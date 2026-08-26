@@ -22,14 +22,16 @@ import (
 
 type Guest struct {
 	gorm.Model
-	Name       string
-	Phone      string `gorm:"uniqueIndex"`
-	Companions int    `gorm:"default:0"`
-	Token      string `gorm:"uniqueIndex"`
-	QRImageURL string
-	Status     string `gorm:"default:'pending'"`
-	CheckedIn  bool   `gorm:"default:false"`
+	Name        string
+	Phone       string `gorm:"uniqueIndex"`
+	Companions  int    `gorm:"default:0"`
+	Token       string `gorm:"uniqueIndex"`
+	QRImageURL  string
+	Status      string `gorm:"default:'pending'"` // pending | confirmed | declined
+	CheckedIn   bool   `gorm:"default:false"`
+	CheckedInAt *time.Time // وقت الدخول الفعلي (null لو لسه مدخلش)
 }
+
 type InvitationSettings struct {
 	gorm.Model
 	EventTitle      string
@@ -345,17 +347,27 @@ func UpdateGuestAdmin(c *gin.Context) {
 	guest.CheckedIn = input.CheckedIn
 
 	// إلغاء الباركود عند الاعتذار أو الرجوع لقيد الانتظار
+// إلغاء الباركود عند الاعتذار أو الرجوع لقيد الانتظار
 	if newStatus == "declined" || newStatus == "pending" {
 		if guest.QRImageURL != "" {
 			_ = os.Remove("." + guest.QRImageURL)
 			guest.QRImageURL = ""
 		}
-		// لو اعتذر، يفضل إلغاء علامة الدخول أيضاً
-		if newStatus == "declined" {
-			guest.CheckedIn = false
-		}
+		// CheckedIn و CheckedInAt يتسابوا زي ما هما
 	}
 
+	// لو الأدمن رجّع "لم يدخل" يدوياً
+	if !input.CheckedIn {
+		guest.CheckedIn = false
+		guest.CheckedInAt = nil
+	} else if input.CheckedIn && !guest.CheckedIn {
+		now := time.Now()
+		guest.CheckedIn = true
+		guest.CheckedInAt = &now
+	} else {
+		guest.CheckedIn = input.CheckedIn
+	}
+	
 	// تأكيد يدوي من الأدمن بدون باركود → توليد باركود
 	if newStatus == "confirmed" && guest.QRImageURL == "" {
 		scheme := "http"
@@ -441,29 +453,37 @@ func APIVerify(c *gin.Context) {
 		return
 	}
 
-	if guest.CheckedIn {
+if guest.CheckedIn {
+		checkedAt := ""
+		if guest.CheckedInAt != nil {
+			checkedAt = guest.CheckedInAt.Format("2006-01-02 15:04")
+		}
 		c.JSON(http.StatusOK, gin.H{
-			"success":    true,
-			"name":       guest.Name,
-			"phone":      guest.Phone,
-			"companions": guest.Companions,
-			"status":     guest.Status,
-			"checked_in": true,
-			"message":    "تم فحص هذا الباركود مسبقاً - هذا المدعو قام بالدخول",
+			"success":      true,
+			"name":         guest.Name,
+			"phone":        guest.Phone,
+			"companions":   guest.Companions,
+			"status":       guest.Status,
+			"checked_in":   true,
+			"checked_in_at": checkedAt,
+			"message":      "تم فحص هذا الباركود مسبقاً - هذا المدعو قام بالدخول",
 		})
 		return
 	}
 
+	now := time.Now()
 	guest.CheckedIn = true
+	guest.CheckedInAt = &now
 	DB.Save(&guest)
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":    true,
-		"name":       guest.Name,
-		"phone":      guest.Phone,
-		"companions": guest.Companions,
-		"status":     guest.Status,
-		"checked_in": false,
+		"success":       true,
+		"name":          guest.Name,
+		"phone":         guest.Phone,
+		"companions":    guest.Companions,
+		"status":        guest.Status,
+		"checked_in":    true,
+		"checked_in_at": now.Format("2006-01-02 15:04"),
 	})
 }
 
@@ -716,11 +736,24 @@ func main() {
 	r := gin.Default()
 
 	// دالة مساعدة لتنسيق التاريخ داخل الـ HTML
-	r.SetFuncMap(template.FuncMap{
-		"formatDate": func(t time.Time) string {
+r.SetFuncMap(template.FuncMap{
+	"formatDate": func(v interface{}) string {
+		switch t := v.(type) {
+		case time.Time:
+			if t.IsZero() {
+				return "—"
+			}
 			return t.Format("2006-01-02 15:04")
-		},
-	})
+		case *time.Time:
+			if t == nil || t.IsZero() {
+				return "—"
+			}
+			return t.Format("2006-01-02 15:04")
+		default:
+			return "—"
+		}
+	},
+})
 
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/public", "./public")

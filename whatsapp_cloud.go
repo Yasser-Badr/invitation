@@ -118,6 +118,20 @@ func CloudSendImageByURL(to string, imageURL string, caption string) error {
 	}
 	return cloudSend(payload)
 }
+// إرسال فيديو برابط عام
+func CloudSendVideoByURL(to string, videoURL string, caption string) error {
+	to = cloudNormalizePhone(to)
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"to":                to,
+		"type":              "video",
+		"video": map[string]interface{}{
+			"link":    videoURL,
+			"caption": caption,
+		},
+	}
+	return cloudSend(payload)
+}
 
 // ---------- إرسال Template (للدعوة الجماعية لاحقاً) ----------
 // اسم القالب مثال: wedding_invite_rsvp
@@ -528,30 +542,45 @@ func BroadcastCloudHandler(c *gin.Context) {
 		sendMode = "buttons"
 	}
 
-	var imagePublicURL string
+//	var imagePublicURL string
+// ----- مرفق صورة أو فيديو (اختياري) -----
+	var mediaPublicURL string
+	var mediaKind string // "image" | "video"
+
 	fileHeader, err := c.FormFile("media")
 	if err == nil && fileHeader != nil {
 		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cloud يدعم صور فقط (jpg/png/webp)"})
+		switch ext {
+		case ".jpg", ".jpeg", ".png", ".webp":
+			mediaKind = "image"
+			if fileHeader.Size > 5*1024*1024 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "حجم الصورة كبير (الحد 5 ميجا)"})
+				return
+			}
+		case ".mp4", ".3gp":
+			mediaKind = "video"
+			if fileHeader.Size > 16*1024*1024 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "حجم الفيديو كبير (الحد 16 ميجا)"})
+				return
+			}
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "الصيغ المسموحة: jpg/png/webp أو mp4"})
 			return
 		}
-		if fileHeader.Size > 5*1024*1024 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "حجم الصورة كبير (الحد 5 ميجا)"})
-			return
-		}
+
 		_ = os.MkdirAll("./public/uploads", 0o755)
 		filename := fmt.Sprintf("broadcast_%d%s", time.Now().UnixNano(), ext)
 		savePath := "./public/uploads/" + filename
 		if err := c.SaveUploadedFile(fileHeader, savePath); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل حفظ الصورة"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل حفظ الملف"})
 			return
 		}
 		base := strings.TrimRight(getAppBaseURL(), "/")
 		if base == "" {
 			base = strings.TrimRight(os.Getenv("APP_BASE_URL"), "/")
 		}
-		imagePublicURL = base + "/public/uploads/" + filename
+		mediaPublicURL = base + "/public/uploads/" + filename
+		fmt.Printf("📎 مرفق البث (%s): %s\n", mediaKind, mediaPublicURL)
 	}
 
 	idsStr := c.PostForm("guest_ids")
@@ -607,32 +636,37 @@ func BroadcastCloudHandler(c *gin.Context) {
 		inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
 		fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
 		fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
-
-		var sendErr error
+		
+        var sendErr error
 		if sendMode == "buttons" {
-			sendErr = CloudSendInvite(g.Phone, fullMessage, imagePublicURL)
+			if mediaPublicURL != "" && mediaKind == "video" {
+				// فيديو أولاً ثم الأزرار (الفيديو مش header للأزرار)
+				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
+				if sendErr == nil {
+					time.Sleep(800 * time.Millisecond)
+					sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
+				}
+			} else {
+				// صورة (أو بدون مرفق) + أزرار في رسالة واحدة
+				imgURL := ""
+				if mediaKind == "image" {
+					imgURL = mediaPublicURL
+				}
+				sendErr = CloudSendInvite(g.Phone, fullMessage, imgURL)
+			}
 			if sendErr == nil && adminWhatsAppURL() != "" {
 				time.Sleep(600 * time.Millisecond)
 				_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
 			}
-		} else if imagePublicURL != "" {
-			sendErr = CloudSendImageByURL(g.Phone, imagePublicURL, fullMessage)
+		} else if mediaPublicURL != "" {
+			if mediaKind == "video" {
+				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
+			} else {
+				sendErr = CloudSendImageByURL(g.Phone, mediaPublicURL, fullMessage)
+			}
 		} else {
 			sendErr = CloudSendText(g.Phone, fullMessage)
 		}
-
-		if sendErr != nil {
-			failList = append(failList, resultItem{
-				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
-			})
-			fmt.Printf("❌ Cloud فشل %s: %v\n", g.Name, sendErr)
-		} else {
-			successList = append(successList, resultItem{
-				ID: g.ID, Name: g.Name, Phone: g.Phone,
-			})
-			fmt.Printf("✅ Cloud نجح %s\n", g.Name)
-		}
-	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":       fmt.Sprintf("Cloud API: %d نجح، %d فشل", len(successList), len(failList)),

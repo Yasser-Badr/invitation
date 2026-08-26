@@ -331,6 +331,37 @@ func SendWAImage(phone string, imageData []byte, caption string) error {
 	return nil
 }
 
+func SendWAVideo(phone string, videoData []byte, caption string) error {
+	if WAClient == nil || !WAClient.IsConnected() {
+		return fmt.Errorf("حساب الواتساب غير متصل")
+	}
+	uploaded, err := WAClient.Upload(context.Background(), videoData, whatsmeow.MediaVideo)
+	if err != nil {
+		return fmt.Errorf("فشل رفع الفيديو: %v", err)
+	}
+	phone = normalizePhone(phone)
+	jid := types.NewJID(phone, types.DefaultUserServer)
+	msg := &waProto.Message{
+		VideoMessage: &waProto.VideoMessage{
+			Caption:       proto.String(caption),
+			Mimetype:      proto.String("video/mp4"),
+			URL:           proto.String(uploaded.URL),
+			DirectPath:    proto.String(uploaded.DirectPath),
+			MediaKey:      uploaded.MediaKey,
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    proto.Uint64(uint64(len(videoData))),
+		},
+	}
+	_, err = WAClient.SendMessage(context.Background(), jid, msg)
+	if err != nil {
+		fmt.Printf("❌ فشل إرسال الفيديو إلى %s: %v\n", phone, err)
+		return err
+	}
+	fmt.Printf("✅ تم إرسال الفيديو بنجاح إلى: %s\n", phone)
+	return nil
+}
+
 func SendWADocument(phone string, fileData []byte, fileName string, caption string) error {
 	if WAClient == nil || !WAClient.IsConnected() {
 		return fmt.Errorf("حساب الواتساب غير متصل")
@@ -482,11 +513,8 @@ func sendQRToGuest(guest *Guest) {
 	caption := fmt.Sprintf(
 		"يا هلا بك يا %s، تم تأكيد حضورك بنجاح.\n\n"+
 			"👥 | عدد المرافقين: %s\n\n"+
-			"🎫 | باركود الدخول الخاصة بكم\n"+
-			"📌 | الرجاء حفظ البطاقة لديكم\n"+
-			"📌 | الرجاء إبراز البطاقة عند الدخول\n\n"+
-			" حضورك يزيد فرحتنا بهجة وسرورًا 💚✨\n\n"+
-			"```ELCODE | INVITATION لإدارة دعوات المناسبات```",
+			"🎫 | الرجاء إظهار الباركود عند الدخول \n\n"+
+			"يسعدنا تشريفكم 💚✨\n",
 		guest.Name,
 		companionsLine,
 	)
@@ -518,17 +546,16 @@ func processDeclineAttendance(guest *Guest) {
 		guest.QRImageURL = ""
 	}
 	guest.Status = "declined"
-	guest.CheckedIn = false
+	// لا تغيّر CheckedIn ولا CheckedInAt
 	DB.Save(guest)
 
 	msg := fmt.Sprintf("تم تسجيل اعتذارك يا %s 🌸\nمقدرين ظروفك، ونتمنى نشوفك في مناسبات قادمة.", guest.Name)
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		_ = CloudSendText(guest.Phone, msg)
-		// _ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
 	} else {
 		_ = SendWAMessage(guest.Phone, msg)
 	}
-	fmt.Printf("📝 اعتذار من %s — تم إلغاء الباركود\n", guest.Name)
+	fmt.Printf("📝 اعتذار من %s — تم إلغاء الباركود (الدخول لم يُمسح)\n", guest.Name)
 }
 
 func handleIncomingWA(evt interface{}) {
@@ -615,14 +642,22 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل قراءة الملف المرفق"})
 			return
 		}
-		mediaFileName = fileHeader.Filename
+		
+        mediaFileName = fileHeader.Filename
 		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".gif" {
+		switch ext {
+		case ".jpg", ".jpeg", ".png", ".webp", ".gif":
 			mediaType = "image"
-		} else {
+		case ".mp4", ".3gp":
+			mediaType = "video"
+		default:
 			mediaType = "document"
 		}
-		if len(mediaData) > 10*1024*1024 {
+		if mediaType == "video" && len(mediaData) > 16*1024*1024 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "حجم الفيديو كبير (الحد 16 ميجا)"})
+			return
+		}
+		if mediaType != "video" && len(mediaData) > 10*1024*1024 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "حجم الملف كبير جداً (الحد الأقصى 10 ميجا)"})
 			return
 		}
@@ -689,16 +724,19 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 			inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
 			fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
 			fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
-
-			var sendErr error
+			
+            var sendErr error
 			if sendMode == "buttons" {
 				if len(mediaData) > 0 {
 					if mediaType == "image" {
 						sendErr = SendWAImage(g.Phone, mediaData, fullMessage)
+					} else if mediaType == "video" {
+						sendErr = SendWAVideo(g.Phone, mediaData, fullMessage)
 					} else {
 						sendErr = SendWADocument(g.Phone, mediaData, mediaFileName, fullMessage)
 					}
 					if sendErr == nil {
+						time.Sleep(500 * time.Millisecond)
 						sendErr = SendWAButtons(g.Phone, "للرد على الدعوة اختر:", "أو اكتب: تأكيد / اعتذار")
 					}
 				} else {
@@ -709,6 +747,8 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 				if len(mediaData) > 0 {
 					if mediaType == "image" {
 						sendErr = SendWAImage(g.Phone, mediaData, fullMessage)
+					} else if mediaType == "video" {
+						sendErr = SendWAVideo(g.Phone, mediaData, fullMessage)
 					} else {
 						sendErr = SendWADocument(g.Phone, mediaData, mediaFileName, fullMessage)
 					}
@@ -716,7 +756,6 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 					sendErr = SendWAMessage(g.Phone, fullMessage)
 				}
 			}
-
 mu.Lock()
 			if sendErr != nil {
 				failList = append(failList, resultItem{

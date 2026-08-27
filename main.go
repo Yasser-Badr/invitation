@@ -421,19 +421,21 @@ func RenderVerifyPage(c *gin.Context) {
 		"Status":     guest.Status,
 	})
 }
+
 func APIVerify(c *gin.Context) {
 	token := c.Param("token")
 	var guest Guest
 
 	if err := DB.Where("token = ?", token).First(&guest).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"error":   "هذا الباركود غير مسجل في النظام!",
+			"success":            false,
+			"error":              "هذا الباركود غير مسجل في النظام!",
+			"already_checked_in": false,
 		})
 		return
 	}
 
-	// مش مؤكد أو مفيش باركود صالح → ارفض الدخول
+	// مش مؤكد أو مفيش باركود صالح → ارفض
 	if guest.Status != "confirmed" || guest.QRImageURL == "" {
 		msg := "هذا الباركود غير صالح للدخول"
 		if guest.Status == "declined" {
@@ -442,48 +444,61 @@ func APIVerify(c *gin.Context) {
 			msg = "الحضور غير مؤكد بعد"
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"success":    false,
-			"error":      msg,
-			"name":       guest.Name,
-			"phone":      guest.Phone,
-			"companions": guest.Companions,
-			"status":     guest.Status,
-			"checked_in": false,
+			"success":            false,
+			"error":              msg,
+			"name":               guest.Name,
+			"phone":              guest.Phone,
+			"companions":         guest.Companions,
+			"status":             guest.Status,
+			"checked_in":         guest.CheckedIn,
+			"already_checked_in": false,
 		})
 		return
 	}
 
-if guest.CheckedIn {
+	// ===== سكان تاني أو أكتر =====
+	if guest.CheckedIn {
 		checkedAt := ""
 		if guest.CheckedInAt != nil {
 			checkedAt = guest.CheckedInAt.Format("2006-01-02 15:04")
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"success":      true,
-			"name":         guest.Name,
-			"phone":        guest.Phone,
-			"companions":   guest.Companions,
-			"status":       guest.Status,
-			"checked_in":   true,
-			"checked_in_at": checkedAt,
-			"message":      "تم فحص هذا الباركود مسبقاً - هذا المدعو قام بالدخول",
+			"success":            true,
+			"name":               guest.Name,
+			"phone":              guest.Phone,
+			"companions":         guest.Companions,
+			"status":             guest.Status,
+			"checked_in":         true,
+			"already_checked_in": true,
+			"checked_in_at":      checkedAt,
+			"message":            "تم فحص هذا الباركود مسبقاً - هذا المدعو قام بالدخول",
 		})
 		return
 	}
 
+	// ===== أول سكان ناجح =====
 	now := time.Now()
 	guest.CheckedIn = true
 	guest.CheckedInAt = &now
-	DB.Save(&guest)
+	if err := DB.Save(&guest).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success":            false,
+			"error":              "فشل تسجيل الدخول، حاول مرة أخرى",
+			"already_checked_in": false,
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":       true,
-		"name":          guest.Name,
-		"phone":         guest.Phone,
-		"companions":    guest.Companions,
-		"status":        guest.Status,
-		"checked_in":    true,
-		"checked_in_at": now.Format("2006-01-02 15:04"),
+		"success":            true,
+		"name":               guest.Name,
+		"phone":              guest.Phone,
+		"companions":         guest.Companions,
+		"status":             guest.Status,
+		"checked_in":         true,
+		"already_checked_in": false,
+		"checked_in_at":      now.Format("2006-01-02 15:04"),
+		"message":            "تم تسجيل الدخول بنجاح ✅",
 	})
 }
 

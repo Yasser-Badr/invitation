@@ -511,7 +511,8 @@ func sendQRToGuest(guest *Guest) {
 	}
 
 	caption := fmt.Sprintf(
-		"يا هلا بك يا %s، تم تأكيد حضورك بنجاح.\n\n"+
+		"يا هلا بك يا %s، تم تأكيد حضورك بنجاح.\n"+
+		"تشرفنا فيج، ووجودج هو اللي يكمل فرحتنا* 🤍✨\n\n"+
 			"👥 | عدد المرافقين: %s\n\n"+
 			"🎫 | الرجاء إظهار الباركود عند الدخول \n\n"+
 			"يسعدنا تشريفكم 💚✨\n",
@@ -549,7 +550,7 @@ func processDeclineAttendance(guest *Guest) {
 	// لا تغيّر CheckedIn ولا CheckedInAt
 	DB.Save(guest)
 
-	msg := fmt.Sprintf("تم تسجيل اعتذارك يا %s 🌸\nمقدرين ظروفك، ونتمنى نشوفك في مناسبات قادمة.", guest.Name)
+	msg := fmt.Sprintf("تم تسجيل اعتذارك يا %s 🌸\n عسى المانع خير، عذرج مقبول ،مكانج محفوظ عندنا🤍 ", guest.Name)
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		_ = CloudSendText(guest.Phone, msg)
 	} else {

@@ -249,8 +249,17 @@
         </div>
 
         <div class="btn-group">
+            {{ if .RSVPClosed }}
+  <div style="background:#f8d7da;color:#721c24;padding:16px;border-radius:10px;text-align:center;margin:16px 0;">
+    <strong>انتهت فترة التأكيد والاعتذار</strong>
+    <p style="margin:8px 0 0;">{{ .ClosedMsg }}</p>
+  </div>
+{{ else }}
+  <!-- أزرار تأكيد / اعتذار الحالية -->
+
             <button class="btn" onclick="sendRSVP('confirmed')">تأكيد الحضور</button>
             <button class="btn btn-decline" onclick="sendRSVP('declined')">أعتذر عن الحضور</button>
+{{ end }}
         </div>
 
     </div>

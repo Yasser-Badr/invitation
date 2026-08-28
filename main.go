@@ -51,6 +51,8 @@ type InvitationSettings struct {
 	BackgroundURL   string // خلفية البطاقة (اختياري)
 	IconLocationURL string // أيقونة الموقع
 	IconDateURL     string // أيقونة التاريخ
+
+    EventDate string // مثال: 2026-09-20  (YYYY-MM-DD)
 }
 
 var DB *gorm.DB
@@ -158,11 +160,14 @@ func RenderInvitePage(c *gin.Context) {
 
 	settings := getSettings()
 
+    closed := isRSVPClosed()
 	c.HTML(http.StatusOK, "invite.html", gin.H{
 		"Name":       guest.Name,
 		"Companions": guest.Companions,
 		"Token":      guest.Token,
 		"Settings":   settings,
+		"RSVPClosed": closed,
+		"ClosedMsg":  rsvpClosedMessage(),
 	})
 }
 
@@ -172,6 +177,10 @@ type RSVPInput struct {
 }
 
 func UpdateRSVP(c *gin.Context) {
+    if isRSVPClosed() {
+		c.JSON(http.StatusForbidden, gin.H{"error": rsvpClosedMessage()})
+		return
+	}
 	var input RSVPInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -361,7 +370,7 @@ func UpdateGuestAdmin(c *gin.Context) {
 		guest.CheckedIn = false
 		guest.CheckedInAt = nil
 	} else if input.CheckedIn && !guest.CheckedIn {
-		now := time.Now()
+		now := kuwaitNow()
 		guest.CheckedIn = true
 		guest.CheckedInAt = &now
 	} else {
@@ -422,6 +431,22 @@ func RenderVerifyPage(c *gin.Context) {
 	})
 }
 
+func kuwaitNow() time.Time {
+	loc, err := time.LoadLocation("Asia/Kuwait")
+	if err != nil {
+		return time.Now()
+	}
+	return time.Now().In(loc)
+}
+
+func formatKuwait(t time.Time) string {
+	loc, err := time.LoadLocation("Asia/Kuwait")
+	if err != nil {
+		return t.Format("2006-01-02 15:04")
+	}
+	return t.In(loc).Format("2006-01-02 15:04")
+}
+
 func APIVerify(c *gin.Context) {
 	token := c.Param("token")
 	var guest Guest
@@ -460,7 +485,7 @@ func APIVerify(c *gin.Context) {
 	if guest.CheckedIn {
 		checkedAt := ""
 		if guest.CheckedInAt != nil {
-			checkedAt = guest.CheckedInAt.Format("2006-01-02 15:04")
+			checkedAt = formatKuwait(*guest.CheckedInAt)
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"success":            true,
@@ -477,7 +502,7 @@ func APIVerify(c *gin.Context) {
 	}
 
 	// ===== أول سكان ناجح =====
-	now := time.Now()
+	now := kuwaitNow()
 	guest.CheckedIn = true
 	guest.CheckedInAt = &now
 	if err := DB.Save(&guest).Error; err != nil {
@@ -497,7 +522,7 @@ func APIVerify(c *gin.Context) {
 		"status":             guest.Status,
 		"checked_in":         true,
 		"already_checked_in": false,
-		"checked_in_at":      now.Format("2006-01-02 15:04"),
+		"checked_in_at": formatKuwait(now),
 		"message":            "تم تسجيل الدخول بنجاح ✅",
 	})
 }
@@ -530,6 +555,7 @@ func UpdateSettings(c *gin.Context) {
 	settings.FooterQuote = c.PostForm("footer_quote")
 	settings.PrimaryColor = c.PostForm("primary_color")
 	settings.SecondaryColor = c.PostForm("secondary_color")
+	settings.EventDate = strings.TrimSpace(c.PostForm("event_date"))
 
 	// رفع الصور
 // رفع الصور + حذف القديمة
@@ -736,6 +762,44 @@ func ImportGuestsExcel(c *gin.Context) {
 	})
 }
 
+// آخر موعد للرد = يوم الزفاف ناقص 3 أيام (نهاية اليوم بتوقيت القاهرة)
+func rsvpDeadline() (time.Time, bool) {
+	s := getSettings()
+	if strings.TrimSpace(s.EventDate) == "" {
+		return time.Time{}, false // مفيش تاريخ → مفيش إغلاق تلقائي
+	}
+    loc, err := time.LoadLocation("Asia/Kuwait")
+	if err != nil {
+		loc = time.Local
+	}
+	eventDay, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(s.EventDate), loc)
+	if err != nil {
+		return time.Time{}, false
+	}
+	// قبل الزفاف بـ 3 أيام، الساعة 23:59:59
+	deadline := eventDay.AddDate(0, 0, -3).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	return deadline, true
+}
+
+func isRSVPClosed() bool {
+	deadline, ok := rsvpDeadline()
+	if !ok {
+		return false
+	}
+	return kuwaitNow().After(deadline)
+}
+
+func rsvpClosedMessage() string {
+	deadline, ok := rsvpDeadline()
+	if !ok {
+		return "انتهت فترة تأكيد الحضور أو الاعتذار."
+	}
+	return fmt.Sprintf(
+		"انتهت فترة تأكيد الحضور أو الاعتذار.\nكان آخر موعد للرد: %s\nللاستفسار تواصل مع الإدارة.",
+		formatCairo(deadline),
+	)
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("⚠️ لم يتم تحميل .env:", err)
@@ -752,20 +816,28 @@ func main() {
 
 	// دالة مساعدة لتنسيق التاريخ داخل الـ HTML
 r.SetFuncMap(template.FuncMap{
-	"formatDate": func(v interface{}) string {
+"formatDate": func(v interface{}) string {
+		loc, _ := time.LoadLocation("Asia/Kuwait")
 		switch t := v.(type) {
 		case time.Time:
 			if t.IsZero() {
 				return "—"
+			}
+			if loc != nil {
+				return t.In(loc).Format("2006-01-02 15:04")
 			}
 			return t.Format("2006-01-02 15:04")
 		case *time.Time:
 			if t == nil || t.IsZero() {
 				return "—"
 			}
+			if loc != nil {
+				return t.In(loc).Format("2006-01-02 15:04")
+			}
 			return t.Format("2006-01-02 15:04")
 		default:
 			return "—"
+		
 		}
 	},
 })

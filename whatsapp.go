@@ -470,6 +470,14 @@ func getAppBaseURL() string {
 // ===================== whatsapp.go =====================
 
 func processConfirmAttendance(guest *Guest) {
+	if isRSVPClosed() {
+		msg := rsvpClosedMessage()
+		_ = CloudSendText(guest.Phone, msg)
+		_ = SendWAMessage(guest.Phone, msg)
+		fmt.Printf("⏰ انتهت صلاحية التأكيد لـ %s\n", guest.Name)
+		return
+	}
+	
 	// منع التكرار
 	if guest.Status == "confirmed" && guest.QRImageURL != "" {
 		fmt.Printf("ℹ️ %s مؤكد مسبقاً — تجاهل تكرار التأكيد\n", guest.Name)
@@ -542,6 +550,14 @@ func sendQRToGuest(guest *Guest) {
 }
 
 func processDeclineAttendance(guest *Guest) {
+	if isRSVPClosed() {
+		msg := rsvpClosedMessage()
+		_ = CloudSendText(guest.Phone, msg)
+		_ = SendWAMessage(guest.Phone, msg)
+		fmt.Printf("⏰ انتهت صلاحية الاعتذار لـ %s\n", guest.Name)
+		return
+	}
+	
 	if guest.QRImageURL != "" {
 		_ = os.Remove("." + guest.QRImageURL)
 		guest.QRImageURL = ""

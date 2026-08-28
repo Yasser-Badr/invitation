@@ -796,7 +796,7 @@ func rsvpClosedMessage() string {
 	}
 	return fmt.Sprintf(
 		"انتهت فترة تأكيد الحضور أو الاعتذار.\nكان آخر موعد للرد: %s\nللاستفسار تواصل مع الإدارة.",
-		formatCairo(deadline),
+		formatKuwait(deadline),
 	)
 }
 

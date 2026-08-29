@@ -282,7 +282,7 @@
                         <th>إجراءات</th>
                     </tr>
                 </thead>
-                <tbody>
+<tbody>
                     {{ range .AllGuests }}
                     <tr>
                         <td><input type="checkbox" class="guest-checkbox" value="{{.ID}}"></td>
@@ -303,22 +303,23 @@
                             {{ end }}
                         </td>
                         <td>
-                            {{ if .CheckedIn }}
-                                <span class="status status-confirmed">تم الدخول</span>
-                            {{ else }}
-                                <span class="status status-pending">لم يدخل</span>
-                            {{ end }}
+                            {{ if .CheckedInAt }}{{ formatDate .CheckedInAt }}{{ else }}—{{ end }}
                         </td>
-                        <td>{{ if .CheckedIn }}<span class="status status-confirmed">تم الدخول</span>{{ else }}<span class="status status-pending">لم يدخل</span>{{ end }}</td>
-                        <td>{{ if .CheckedInAt }}{{ formatDate .CheckedInAt }}{{ else }}—{{ end }}</td>
                         <td>
-                            <button class="btn btn-primary btn-sm" ...>تعديل</button>
+                            <button class="btn btn-primary btn-sm"
+                                data-id="{{.ID}}"
+                                data-name="{{.Name}}"
+                                data-phone="{{.Phone}}"
+                                data-companions="{{.Companions}}"
+                                data-checked="{{.CheckedIn}}"
+                                data-status="{{.Status}}"
+                                onclick="openEditModalFromBtn(this)">تعديل</button>
                             <button class="btn btn-danger btn-sm" onclick="deleteGuest('{{.ID}}')">حذف</button>
                         </td>
-                        </tr>
-                            {{ else }}
-                        <tr class="empty-row"><td colspan="8">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
-                            {{ end }}
+                    </tr>
+                    {{ else }}
+                    <tr class="empty-row"><td colspan="9">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
+                    {{ end }}
                 </tbody>
             </table>
         </div>

@@ -215,17 +215,29 @@
             {{ if .Settings.Person2 }}<div>{{ .Settings.Person2 }}</div>{{ end }}
         </div>
         {{ end }}
-
         <div class="details-grid">
-            <a href="{{ .Settings.MapsURL }}" target="_blank" class="location-link" title="افتح الموقع">
-                {{ if .Settings.IconLocationURL }}
-                    <img src="{{ .Settings.IconLocationURL }}" class="custom-icon" alt="موقع">
+            <div class="location-block" style="flex:1; display:flex; flex-direction:column; align-items:center;">
+                {{ if .LocationQRURL }}
+                    <a href="{{ .Settings.MapsURL }}" target="_blank" title="افتح الموقع" style="text-decoration:none; color:inherit;">
+                        <img src="{{ .LocationQRURL }}" alt="باركود الموقع"
+                             style="width:120px;height:120px;border-radius:10px;border:1px solid #e8e4dc;background:#fff;padding:4px;">
+                        <div style="margin-top:8px; font-weight:700;">{{ .Settings.LocationName }}</div>
+                        {{ if .Settings.LocationAddress }}
+                        <div style="font-size:13px; opacity:0.85;">{{ .Settings.LocationAddress }}</div>
+                        {{ end }}
+                    </a>
                 {{ else }}
-                    <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <a href="{{ .Settings.MapsURL }}" target="_blank" class="location-link" title="افتح الموقع">
+                        {{ if .Settings.IconLocationURL }}
+                            <img src="{{ .Settings.IconLocationURL }}" class="custom-icon" alt="موقع">
+                        {{ else }}
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                        {{ end }}
+                        <span>{{ .Settings.LocationName }}</span>
+                        <span>{{ .Settings.LocationAddress }}</span>
+                    </a>
                 {{ end }}
-                <span>{{ .Settings.LocationName }}</span>
-                <span>{{ .Settings.LocationAddress }}</span>
-            </a>
+            </div>
             
             <div class="divider">|</div>
             
@@ -238,21 +250,35 @@
                 <span class="date-text">{{ .Settings.DateText }}</span>
             </div>
         </div>
-
         <div class="footer-quote">
             {{ .Settings.FooterQuote }}
         </div>
 
         <div class="guest-info-box">
-            حياك الله يا : {{ .Name }}<br>
+            {{ if eq .Gender "female" }}
+                حياج الله يا : {{ .Name }}
+            {{ else }}
+                حياك الله يا : {{ .Name }}
+            {{ end }}
+            <br>
             عدد المرافقين : {{ .Companions }}
         </div>
-
         <div class="btn-group">
             {{ if .RSVPClosed }}
   <div style="background:#f8d7da;color:#721c24;padding:16px;border-radius:10px;text-align:center;margin:16px 0;">
     <strong>انتهت فترة التأكيد والاعتذار</strong>
     <p style="margin:8px 0 0;">{{ .ClosedMsg }}</p>
+    {{if .RSVPClosed}}
+<div class="closed-box">
+    <p>{{.ClosedMsg}}</p>
+    
+    {{if .AdminWhatsApp}}
+    <a href="{{.AdminWhatsApp}}" target="_blank" class="btn-contact">
+        تواصل مع الإدارة 💬
+    </a>
+    {{end}}
+</div>
+{{end}}
   </div>
 {{ else }}
   <!-- أزرار تأكيد / اعتذار الحالية -->

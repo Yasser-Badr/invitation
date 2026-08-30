@@ -313,6 +313,7 @@
                                 data-companions="{{.Companions}}"
                                 data-checked="{{.CheckedIn}}"
                                 data-status="{{.Status}}"
+                                data-gender="{{.Gender}}"
                                 onclick="openEditModalFromBtn(this)">تعديل</button>
                             <button class="btn btn-danger btn-sm" onclick="deleteGuest('{{.ID}}')">حذف</button>
                         </td>
@@ -391,6 +392,11 @@
         <input type="text" id="editPhone">
         <label>المرافقين</label>
         <input type="number" id="editCompanions">
+        <label>النوع</label>
+        <select id="editGender">
+            <option value="male">ذكر</option>
+            <option value="female">أنثي</option>
+        </select>
         <label>حالة الحضور</label>
         <select id="editStatus">
             <option value="pending">قيد الانتظار</option>
@@ -551,6 +557,7 @@ function openEditModalFromBtn(btn) {
     document.getElementById('editCompanions').value = btn.getAttribute('data-companions');
     document.getElementById('editCheckedIn').value = btn.getAttribute('data-checked') === 'true' ? 'true' : 'false';
     document.getElementById('editStatus').value = btn.getAttribute('data-status') || 'pending';
+    document.getElementById('editGender').value = btn.getAttribute('data-gender') === 'female' ? 'female' : 'male';
     document.getElementById('editModal').style.display = 'flex';
 }
 function closeModal() { document.getElementById('editModal').style.display = 'none'; }
@@ -563,6 +570,7 @@ function saveEdit() {
         companions: parseInt(document.getElementById('editCompanions').value, 10) || 0,
         checked_in: document.getElementById('editCheckedIn').value === 'true',
         status: document.getElementById('editStatus').value
+        gender: document.getElementById('editGender').value
     };
     fetch('/admin/api/guests/' + id, {
         method: 'PUT',

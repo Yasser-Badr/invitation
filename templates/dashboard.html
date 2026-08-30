@@ -569,7 +569,7 @@ function saveEdit() {
         phone: document.getElementById('editPhone').value,
         companions: parseInt(document.getElementById('editCompanions').value, 10) || 0,
         checked_in: document.getElementById('editCheckedIn').value === 'true',
-        status: document.getElementById('editStatus').value
+        status: document.getElementById('editStatus').value,
         gender: document.getElementById('editGender').value
     };
     fetch('/admin/api/guests/' + id, {

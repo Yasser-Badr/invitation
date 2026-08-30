@@ -83,7 +83,7 @@ func StartQRLogin() {
 
 	if WAClient.IsConnected() {
 		WAClient.Disconnect()
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(600 * time.Millisecond)
 	}
 
 	qrChan, err := WAClient.GetQRChannel(context.Background())
@@ -468,15 +468,78 @@ func getAppBaseURL() string {
 }
 
 // ===================== whatsapp.go =====================
+func isFemale(g *Guest) bool {
+	s := strings.ToLower(strings.TrimSpace(g.Gender))
+	return s == "female" || s == "f" || s == "انثى" || s == "أنثى" || s == "woman"
+}
+
+func confirmCaption(g *Guest) string {
+	companionsLine := "بدون مرافقين"
+	if g.Companions > 0 {
+		companionsLine = fmt.Sprintf("%d", g.Companions)
+	}
+	if isFemale(g) {
+		return fmt.Sprintf(
+			"يا هلا فيج يا %s، تم تأكيد حضورج بنجاح.\n"+
+				"تشرفنا فيج، ووجودج هو اللي يكمل فرحتنا 🤍✨\n\n"+
+				"👥 | عدد المرافقين: %s\n\n"+
+				"🎫 | الرجاء إظهار الباركود عند الدخول\n\n"+
+				"يسعدنا تشريفج 💚✨",
+			g.Name, companionsLine,
+		)
+	}
+	return fmt.Sprintf(
+		"يا هلا فيك يا %s، تم تأكيد حضورك بنجاح.\n"+
+			"تشرفنا فيك، ووجودك هو اللي يكمل فرحتنا 🤍✨\n\n"+
+			"👥 | عدد المرافقين: %s\n\n"+
+			"🎫 | الرجاء إظهار الباركود عند الدخول\n\n"+
+			"يسعدنا تشريفك 💚✨",
+		g.Name, companionsLine,
+	)
+}
+
+func declineMessage(g *Guest) string {
+	if isFemale(g) {
+		return fmt.Sprintf(
+			"تم تسجيل اعتذارج يا %s 🌸\nعسى المانع خير، عذرچ مقبول، مكانچ محفوظ عندنا 🤍",
+			g.Name,
+		)
+	}
+	return fmt.Sprintf(
+		"تم تسجيل اعتذارك يا %s 🌸\nعسى المانع خير، عذرك مقبول، مكانك محفوظ عندنا 🤍",
+		g.Name,
+	)
+}
+
+// ترسل رسالة انتهاء فترة التأكيد مع زرار تواصل مع الإدارة
+func sendRSVPClosedWithContact(phone string) {
+	msg := rsvpClosedMessage()
+
+	// نفضل Cloud API عشان الزرار الملصوق
+	if cloudToken() != "" && cloudPhoneNumberID() != "" {
+		err := CloudSendContactAdmin(phone, msg)
+		if err == nil {
+			fmt.Printf("✅ تم إرسال رسالة انتهاء الفترة + زرار الإدارة → %s\n", phone)
+			return
+		}
+		fmt.Printf("⚠️ فشل زرار الإدارة: %v — إرسال نص عادي\n", err)
+	}
+
+	// Fallback (whatsmeow أو لو Cloud فشل)
+	waURL := adminWhatsAppURL()
+	if waURL != "" {
+		msg += "\n\nللتواصل مع الإدارة:\n" + waURL
+	}
+	_ = CloudSendText(phone, msg)
+	_ = SendWAMessage(phone, msg)
+}
 
 func processConfirmAttendance(guest *Guest) {
 	if isRSVPClosed() {
-		msg := rsvpClosedMessage()
-		_ = CloudSendText(guest.Phone, msg)
-		_ = SendWAMessage(guest.Phone, msg)
-		fmt.Printf("⏰ انتهت صلاحية التأكيد لـ %s\n", guest.Name)
-		return
-	}
+	sendRSVPClosedWithContact(guest.Phone)
+	fmt.Printf("⏰ انتهت صلاحية التأكيد لـ %s\n", guest.Name)
+	return
+}
 	
 	// منع التكرار
 	if guest.Status == "confirmed" && guest.QRImageURL != "" {
@@ -517,8 +580,10 @@ func sendQRToGuest(guest *Guest) {
 	if guest.Companions > 0 {
 		companionsLine = fmt.Sprintf("%d", guest.Companions)
 	}
+	
+	caption := confirmCaption(guest)
 
-	caption := fmt.Sprintf(
+	/*caption := fmt.Sprintf(
 		"يا هلا بك يا %s، تم تأكيد حضورك بنجاح.\n"+
 		"تشرفنا فيج، ووجودج هو اللي يكمل فرحتنا* 🤍✨\n\n"+
 			"👥 | عدد المرافقين: %s\n\n"+
@@ -526,7 +591,8 @@ func sendQRToGuest(guest *Guest) {
 			"يسعدنا تشريفكم 💚✨\n",
 		guest.Name,
 		companionsLine,
-	)
+	)*/
+	
 
 	settings := getSettings()
 	mapsURL := strings.TrimSpace(settings.MapsURL)
@@ -551,12 +617,10 @@ func sendQRToGuest(guest *Guest) {
 
 func processDeclineAttendance(guest *Guest) {
 	if isRSVPClosed() {
-		msg := rsvpClosedMessage()
-		_ = CloudSendText(guest.Phone, msg)
-		_ = SendWAMessage(guest.Phone, msg)
-		fmt.Printf("⏰ انتهت صلاحية الاعتذار لـ %s\n", guest.Name)
-		return
-	}
+	sendRSVPClosedWithContact(guest.Phone)
+	fmt.Printf("⏰ انتهت صلاحية الاعتذار لـ %s\n", guest.Name)
+	return
+}
 	
 	if guest.QRImageURL != "" {
 		_ = os.Remove("." + guest.QRImageURL)
@@ -565,8 +629,9 @@ func processDeclineAttendance(guest *Guest) {
 	guest.Status = "declined"
 	// لا تغيّر CheckedIn ولا CheckedInAt
 	DB.Save(guest)
-
-	msg := fmt.Sprintf("تم تسجيل اعتذارك يا %s 🌸\n عسى المانع خير، عذرج مقبول ،مكانج محفوظ عندنا🤍 ", guest.Name)
+	
+	msg := declineMessage(guest)
+	
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		_ = CloudSendText(guest.Phone, msg)
 	} else {
@@ -753,7 +818,7 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 						sendErr = SendWADocument(g.Phone, mediaData, mediaFileName, fullMessage)
 					}
 					if sendErr == nil {
-						time.Sleep(500 * time.Millisecond)
+						time.Sleep(600 * time.Millisecond)
 						sendErr = SendWAButtons(g.Phone, "للرد على الدعوة اختر:", "أو اكتب: تأكيد / اعتذار")
 					}
 				} else {
@@ -856,4 +921,145 @@ func sendLocationAfterConfirm(guest *Guest) {
 		}
 		_ = CloudSendLocationLink(guest.Phone, mapsURL, body)
 	}
+}
+
+func StartWeddingReminder() {
+	go func() {
+		// ننتظر شوية في البداية عشان الـ DB والواتساب يكونوا جاهزين
+		time.Sleep(30 * time.Second)
+
+		ticker := time.NewTicker(1 * time.Hour) // كل ساعة
+		defer ticker.Stop()
+
+		for {
+			checkAndSendReminder()
+			<-ticker.C
+		}
+	}()
+	fmt.Println("🔔 نظام التذكير قبل الزفاف شغال...")
+}
+
+func checkAndSendReminder() {
+	settings := getSettings()
+	if strings.TrimSpace(settings.EventDate) == "" {
+		return
+	}
+
+	loc, err := time.LoadLocation("Asia/Kuwait")
+	if err != nil {
+		loc = time.Local
+	}
+
+	eventDay, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(settings.EventDate), loc)
+	if err != nil {
+		return
+	}
+
+	// يوم التذكير = يوم الزفاف ناقص يوم
+	reminderDay := eventDay.AddDate(0, 0, -1)
+	today := kuwaitNow().Format("2006-01-02")
+	reminderStr := reminderDay.Format("2006-01-02")
+
+	if today != reminderStr {
+		return
+	}
+
+	// نتأكد إننا مبعتناش قبل كده
+	flagFile := "./reminder_sent_" + reminderStr + ".flag"
+	if _, err := os.Stat(flagFile); err == nil {
+		return
+	}
+
+	var confirmed []Guest
+	DB.Where("status = ?", "confirmed").Find(&confirmed)
+	if len(confirmed) == 0 {
+		return
+	}
+
+	fmt.Printf("🔔 بدء إرسال تذكير الزفاف لـ %d مدعو...\n", len(confirmed))
+
+	success := 0
+	mapsURL := strings.TrimSpace(settings.MapsURL)
+
+	for _, g := range confirmed {
+		if strings.TrimSpace(g.Phone) == "" {
+			continue
+		}
+
+		msg := buildReminderMessage(&g, settings)
+
+		var sendErr error
+
+		// نفضل Cloud API عشان نقدر نضيف زرار الموقع
+		if cloudToken() != "" && cloudPhoneNumberID() != "" {
+			if mapsURL != "" {
+				// رسالة + زرار "فتح الموقع"
+				sendErr = CloudSendLocationLink(g.Phone, mapsURL, msg)
+			} else {
+				sendErr = CloudSendText(g.Phone, msg)
+			}
+		} else {
+			// whatsmeow (نص فقط + رابط)
+			if mapsURL != "" {
+				msg += "\n\n📍 الموقع: " + mapsURL
+			}
+			sendErr = SendWAMessage(g.Phone, msg)
+		}
+
+		if sendErr != nil {
+			fmt.Printf("❌ فشل تذكير %s: %v\n", g.Name, sendErr)
+		} else {
+			success++
+			fmt.Printf("✅ تذكير → %s\n", g.Name)
+		}
+
+		time.Sleep(900 * time.Millisecond)
+	}
+
+	_ = os.WriteFile(flagFile, []byte("sent"), 0644)
+	fmt.Printf("🎉 تم إرسال التذكير لـ %d من أصل %d\n", success, len(confirmed))
+}
+
+func buildReminderMessage(g *Guest, s InvitationSettings) string {
+	couple := strings.TrimSpace(s.Person1)
+	if s.Person2 != "" {
+		if couple != "" {
+			couple += " و " + strings.TrimSpace(s.Person2)
+		} else {
+			couple = strings.TrimSpace(s.Person2)
+		}
+	}
+	if couple == "" {
+		couple = "العروسين"
+	}
+
+	dateText := s.DateText
+	if dateText == "" {
+		dateText = s.EventDate
+	}
+
+	locationName := s.LocationName
+	if locationName == "" {
+		locationName = "القاعة"
+	}
+
+	if isFemale(g) {
+		return fmt.Sprintf(
+			"يا هلا فيج يا %s 🤍\n\n"+
+				"تذكير بمناسبة زفاف *%s* غداً إن شاء الله ✨\n\n"+
+				"📅 الموعد: %s\n"+
+				"📍 المكان: %s\n\n"+
+				"نتشرف بوجودج ويارب تكون فرحة مكتملة بوجودكم 💚",
+			g.Name, couple, dateText, locationName,
+		)
+	}
+
+	return fmt.Sprintf(
+		"يا هلا فيك يا %s 🤍\n\n"+
+			"تذكير بمناسبة زفاف *%s* غداً إن شاء الله ✨\n\n"+
+			"📅 الموعد: %s\n"+
+			"📍 المكان: %s\n\n"+
+			"نتشرف بوجودك ويارب تكون فرحة مكتملة بوجودكم 💚",
+		g.Name, couple, dateText, locationName,
+	)
 }

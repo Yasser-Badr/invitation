@@ -614,7 +614,7 @@ func BroadcastCloudHandler(c *gin.Context) {
 			if mediaPublicURL != "" && mediaKind == "video" {
 				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
 				if sendErr == nil {
-					time.Sleep(800 * time.Millisecond)
+					time.Sleep(900 * time.Millisecond)
 					sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
 				}
 			} else {
@@ -625,7 +625,7 @@ func BroadcastCloudHandler(c *gin.Context) {
 				sendErr = CloudSendInvite(g.Phone, fullMessage, imgURL)
 			}
 			if sendErr == nil && adminWhatsAppURL() != "" {
-				time.Sleep(600 * time.Millisecond)
+				time.Sleep(700 * time.Millisecond)
 				_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
 			}
 		} else if mediaPublicURL != "" {

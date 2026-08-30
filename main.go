@@ -25,6 +25,7 @@ type Guest struct {
 	Name        string
 	Phone       string `gorm:"uniqueIndex"`
 	Companions  int    `gorm:"default:0"`
+	Gender      string `gorm:"default:'male'"` // male | female
 	Token       string `gorm:"uniqueIndex"`
 	QRImageURL  string
 	Status      string `gorm:"default:'pending'"` // pending | confirmed | declined
@@ -97,7 +98,9 @@ type CreateGuestInput struct {
 	Name       string `json:"name" binding:"required"`
 	Phone      string `json:"phone" binding:"required"`
 	Companions int    `json:"companions"`
+	Gender     string `json:"gender"` // male | female
 }
+
 
 func CreateGuest(c *gin.Context) {
 	var input CreateGuestInput
@@ -108,11 +111,15 @@ func CreateGuest(c *gin.Context) {
 	}
 
 	guestToken := uuid.New().String()
-
+    gender := strings.ToLower(strings.TrimSpace(input.Gender))
+    if gender != "female" {
+        gender = "male"
+      }
 	newGuest := Guest{
 		Name:       input.Name,
 		Phone:      input.Phone,
 		Companions: input.Companions,
+		Gender:     gender,
 		Token:      guestToken,
 		QRImageURL: "",
 		Status:     "pending",
@@ -158,16 +165,20 @@ func RenderInvitePage(c *gin.Context) {
 		return
 	}
 
-	settings := getSettings()
-
-    closed := isRSVPClosed()
+    adminWA := adminWhatsAppURL()
+    settings := getSettings()
+	locQR := ensureLocationQR(settings.MapsURL)
+	closed := isRSVPClosed()
 	c.HTML(http.StatusOK, "invite.html", gin.H{
-		"Name":       guest.Name,
-		"Companions": guest.Companions,
-		"Token":      guest.Token,
-		"Settings":   settings,
-		"RSVPClosed": closed,
-		"ClosedMsg":  rsvpClosedMessage(),
+		"Name":          guest.Name,
+		"Companions":    guest.Companions,
+		"Token":         guest.Token,
+		"Gender":        guest.Gender,
+		"Settings":      settings,
+		"LocationQRURL": locQR,
+		"RSVPClosed":    closed,
+		"ClosedMsg":     rsvpClosedMessage(),
+		"AdminWhatsApp": adminWA,   // ← أضف السطر ده
 	})
 }
 
@@ -324,6 +335,7 @@ type UpdateGuestInput struct {
 	Companions int    `json:"companions"`
 	CheckedIn  bool   `json:"checked_in"`
 	Status     string `json:"status"`
+	Gender     string `json:"gender"`
 }
 
 func UpdateGuestAdmin(c *gin.Context) {
@@ -353,6 +365,12 @@ func UpdateGuestAdmin(c *gin.Context) {
 	guest.Name = input.Name
 	guest.Phone = input.Phone
 	guest.Companions = input.Companions
+	g := strings.ToLower(strings.TrimSpace(input.Gender))
+	if g == "female" {
+		guest.Gender = "female"
+	} else if g == "male" {
+		guest.Gender = "male"
+	}
 	guest.CheckedIn = input.CheckedIn
 
 	// إلغاء الباركود عند الاعتذار أو الرجوع لقيد الانتظار
@@ -399,12 +417,33 @@ func UpdateGuestAdmin(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل الحفظ"})
 		return
 	}
+	
+	
+// ابعت الباركود فقط لو الحالة بقت confirmed وفيه QR
+    if newStatus == "confirmed" && guest.QRImageURL != "" {
+        sendQRToGuest(&guest)
+        
+    }
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "تم التعديل بنجاح",
 		"status_changed": oldStatus != newStatus,
 		"guest":          guest,
 	})
+}
+
+func ensureLocationQR(mapsURL string) string {
+	mapsURL = strings.TrimSpace(mapsURL)
+	if mapsURL == "" {
+		return ""
+	}
+	_ = os.MkdirAll("./public/qrcodes", 0o755)
+	path := "./public/qrcodes/location_qr.png"
+	if err := qrcode.WriteFile(mapsURL, qrcode.Medium, 256, path); err != nil {
+		fmt.Printf("⚠️ فشل توليد QR الموقع: %v\n", err)
+		return ""
+	}
+	return "/public/qrcodes/location_qr.png"
 }
 
 func RenderVerifyPage(c *gin.Context) {
@@ -552,6 +591,7 @@ func UpdateSettings(c *gin.Context) {
 	settings.LocationName = c.PostForm("location_name")
 	settings.LocationAddress = c.PostForm("location_address")
 	settings.MapsURL = c.PostForm("maps_url")
+	_ = ensureLocationQR(settings.MapsURL)
 	settings.FooterQuote = c.PostForm("footer_quote")
 	settings.PrimaryColor = c.PostForm("primary_color")
 	settings.SecondaryColor = c.PostForm("secondary_color")
@@ -736,12 +776,21 @@ func ImportGuestsExcel(c *gin.Context) {
 			errorsList = append(errorsList, "صف "+strconv.Itoa(i+1)+" ناقص بيانات")
 			continue
 		}
+		
+		gender := "male"
+		if len(row) >= 4 {
+			g := strings.ToLower(strings.TrimSpace(row[3]))
+			if g == "female" || g == "f" || g == "انثى" || g == "أنثى" || g == "نثى" {
+				gender = "female"
+			}
+		}
 
 		guestToken := uuid.New().String()
 		newGuest := Guest{
 			Name:       name,
 			Phone:      phone,
 			Companions: companions,
+			Gender:     gender,
 			Token:      guestToken,
 			Status:     "pending",
 		}
@@ -792,7 +841,7 @@ func isRSVPClosed() bool {
 func rsvpClosedMessage() string {
 	deadline, ok := rsvpDeadline()
 	if !ok {
-		return "انتهت فترة تأكيد الحضور أو الاعتذار."
+		return "انتهت فترة تأكيد الحضور أو الاعتذار.\nللاستفسار تواصل مع الإدارة."
 	}
 	return fmt.Sprintf(
 		"انتهت فترة تأكيد الحضور أو الاعتذار.\nكان آخر موعد للرد: %s\nللاستفسار تواصل مع الإدارة.",
@@ -812,6 +861,7 @@ func main() {
 	
 	ConnectDB()
     InitWhatsApp()
+    StartWeddingReminder()
 	r := gin.Default()
 
 	// دالة مساعدة لتنسيق التاريخ داخل الـ HTML

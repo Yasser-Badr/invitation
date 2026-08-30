@@ -576,7 +576,7 @@ func sendQRToGuest(guest *Guest) {
 		return
 	}
 
-	companionsLine := "بدون مرافقين"
+	//companionsLine := "بدون مرافقين"
 	if guest.Companions > 0 {
 		companionsLine = fmt.Sprintf("%d", guest.Companions)
 	}

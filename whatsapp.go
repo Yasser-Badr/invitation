@@ -530,8 +530,12 @@ func sendRSVPClosedWithContact(phone string) {
 	if waURL != "" {
 		msg += "\n\nللتواصل مع الإدارة:\n" + waURL
 	}
-	_ = CloudSendText(phone, msg)
-	_ = SendWAMessage(phone, msg)
+    if cloudToken() != "" && cloudPhoneNumberID() != "" {
+    _ = CloudSendText(phone, msg)
+    } else {
+    _ = SendWAMessage(phone, msg)
+        
+    }
 }
 
 func processConfirmAttendance(guest *Guest) {
@@ -576,10 +580,10 @@ func sendQRToGuest(guest *Guest) {
 		return
 	}
 
-	//companionsLine := "بدون مرافقين"
+/*	companionsLine := "بدون مرافقين"
 	if guest.Companions > 0 {
 		companionsLine = fmt.Sprintf("%d", guest.Companions)
-	}
+	}*/
 	
 	caption := confirmCaption(guest)
 

@@ -71,6 +71,8 @@
                 <label>تاريخ المناسبة (لحساب انتهاء التأكيد)</label>
                 <input type="date" name="event_date" value="{{ .Settings.EventDate }}">
                 <p style="font-size:12px;color:#666;">يُغلق التأكيد والاعتذار قبل هذا التاريخ بـ 3 أيام (توقيت الكويت)</p>
+                <label>وقت بداية الحفل (24 ساعة)</label>
+                <input type="time" name="event_time" value="{{.Settings.EventTime}}" placeholder="19:00">
             </div>
 
             <div class="row">

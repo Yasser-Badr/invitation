@@ -221,16 +221,49 @@
 <div class="container">
     <div class="header-card">
         <h2>لوحة الإدارة والإحصائيات</h2>
-        <div class="header-actions">
+    <div class="header-actions">
+        {{ if eq .Role "manager" }}
             <button class="btn btn-teal" onclick="document.getElementById('excelInput').click()">📥 استيراد Excel</button>
             <input type="file" id="excelInput" accept=".xlsx,.xls" style="display:none" onchange="uploadExcel(this)">
             <a href="/admin/add" class="btn btn-primary">➕ إضافة مدعو</a>
-            <a href="/scan" class="btn btn-success" target="_blank">📷 فحص الباركود</a>
             <a href="/admin/settings" class="btn btn-purple">⚙️ إعدادات الدعوة</a>
-            <a href="/login" class="btn btn-secondary" target="_blank">🔗 دخول الضيوف</a>
-        </div>
-    </div>
+            <a href="/admin/api/export-excel?status=all&gender=all&checked=all" class="btn btn-teal">📊 تصدير Excel</a>
+            <a href="/admin/users" class="btn btn-purple">👥 إدارة المستخدمين</a>
+        {{ end }}
 
+        {{ if or (eq .Role "manager") (eq .Role "scanner") }}
+            <a href="/scan" class="btn btn-success" target="_blank">📷 فحص الباركود</a>
+        {{ end }}
+
+        <a href="/login" class="btn btn-secondary" target="_blank">🔗 دخول الضيوف</a>
+    </div>
+    </div>
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px;">
+    <div style="background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+        <div style="font-size:13px; color:#7f8c8d;">إجمالي المدعوين</div>
+        <div style="font-size:28px; font-weight:700; color:#1b4332;">{{ .TotalGuests }}</div>
+    </div>
+    <div style="background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+        <div style="font-size:13px; color:#7f8c8d;">مؤكدين</div>
+        <div style="font-size:28px; font-weight:700; color:#27ae60;">{{ .ConfirmedCount }}</div>
+    </div>
+    <div style="background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+        <div style="font-size:13px; color:#7f8c8d;">دخلوا فعلياً</div>
+        <div style="font-size:28px; font-weight:700; color:#2980b9;">{{ .CheckedInCount }}</div>
+    </div>
+    <div style="background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+        <div style="font-size:13px; color:#7f8c8d;">نسبة الحضور</div>
+        <div style="font-size:28px; font-weight:700; color:#8e44ad;">{{ .AttendanceRate }}%</div>
+    </div>
+    <div style="background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+    <div style="font-size:13px; color:#7f8c8d;">اتبعتلهم دعوة</div>
+    <div style="font-size:28px; font-weight:700; color:#16a085;">{{ .InviteSentCount }}</div>
+</div>
+<div style="background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+    <div style="font-size:13px; color:#7f8c8d;">لسه متبعتش</div>
+    <div style="font-size:28px; font-weight:700; color:#e67e22;">{{ .NotSentCount }}</div>
+</div>
+</div>
     <div class="tabs">
         <button class="tab-btn active" onclick="openTab('all', this)">📋 جميع المدعوين</button>
         <button class="tab-btn" onclick="openTab('confirmed', this)">✅ مؤكدي الحضور ({{ len .Confirmed }})</button>
@@ -238,86 +271,110 @@
     </div>
 
     <div id="all" class="tab-content active">
-        <div class="toolbar-groups">
-            <div class="toolbar-group">
-                <span class="toolbar-label">عام</span>
-                <div class="toolbar-btns">
-                    <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة الكل</a>
-                    <button class="btn btn-print" onclick="openLastReport()">📋 آخر تقرير إرسال</button>
-                    <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف المحددين</button>
-                    <button class="btn btn-danger" style="background:#c0392b;" onclick="deleteAllGuests()">🗑️ حذف الكل</button>
-                </div>
-            </div>
-            <div class="toolbar-group">
-                <span class="toolbar-label">واتساب (QR)</span>
-                <div class="toolbar-btns">
-                    <button class="btn btn-accent" onclick="openBroadcastModal('classic')">💬 رابط الدعوة</button>
-                    <button class="btn btn-wa" onclick="openBroadcastModal('buttons')">📲 أزرار تأكيد</button>
-                    <button class="btn btn-accent" onclick="openBroadcastModalSelected('classic')">💬 رابط للمحددين</button>
-                    <button class="btn btn-wa-dark" onclick="openBroadcastModalSelected('buttons')">📲 أزرار للمحددين</button>
-                </div>
-            </div>
-            <div class="toolbar-group cloud-group">
-                <span class="toolbar-label">Cloud API</span>
-                <div class="toolbar-btns">
-                    <button class="btn btn-teal" onclick="openCloudModal('classic')">☁️ إرسال نص</button>
-                    <button class="btn btn-teal" onclick="openCloudModal('buttons')">☁️ أزرار تأكيد</button>
-                    <button class="btn btn-teal" onclick="openCloudModalSelected('buttons')">☁️ أزرار للمحددين</button>
-                </div>
-            </div>
+{{ if eq .Role "manager" }}
+<div class="toolbar-groups">
+    <div class="toolbar-group">
+        <span class="toolbar-label">عام</span>
+        <div class="toolbar-btns">
+            <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة الكل</a>
+            <button class="btn btn-print" onclick="openLastReport()">📋 آخر تقرير إرسال</button>
+            <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف المحددين</button>
+            <button class="btn btn-danger" style="background:#c0392b;" onclick="deleteAllGuests()">🗑️ حذف الكل</button>
         </div>
+    </div>
+    <div class="toolbar-group">
+        <span class="toolbar-label">واتساب (QR)</span>
+        <div class="toolbar-btns">
+            <button class="btn btn-accent" onclick="openBroadcastModal('classic')">💬 رابط الدعوة</button>
+            <button class="btn btn-wa" onclick="openBroadcastModal('buttons')">📲 أزرار تأكيد</button>
+            <button class="btn btn-accent" onclick="openBroadcastModalSelected('classic')">💬 رابط للمحددين</button>
+            <button class="btn btn-wa-dark" onclick="openBroadcastModalSelected('buttons')">📲 أزرار للمحددين</button>
+        </div>
+    </div>
+    <div class="toolbar-group cloud-group">
+        <span class="toolbar-label">Cloud API</span>
+        <div class="toolbar-btns">
+            <button class="btn btn-teal" onclick="openCloudModal('classic')">☁️ إرسال نص</button>
+            <button class="btn btn-teal" onclick="openCloudModal('buttons')">☁️ أزرار تأكيد</button>
+            <button class="btn btn-teal" onclick="openCloudModalSelected('buttons')">☁️ أزرار للمحددين</button>
+        </div>
+    </div>
+</div>
+{{ else }}
+<!-- للاستقبال والمسح: أزرار طباعة فقط -->
+<div class="toolbar" style="margin-bottom:16px;">
+    <a href="/admin/print/all" target="_blank" class="btn btn-print">🖨️ طباعة الكل</a>
+    <a href="/admin/print/confirmed" target="_blank" class="btn btn-print">🖨️ طباعة المؤكدين</a>
+    <a href="/admin/print/declined" target="_blank" class="btn btn-print">🖨️ طباعة المعتذرين</a>
+</div>
+{{ end }}
 
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr>
-                        <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
-                        <th>م</th>
-                        <th>الاسم</th>
-                        <th>الهاتف</th>
-                        <th>المرافقين</th>
-                        <th>الحالة</th>
-                        <th>الدخول</th>
-                        <th>وقت الدخول</th>
-                        <th>إجراءات</th>
-                    </tr>
-                </thead>
+    <tr>
+        {{ if eq $.Role "manager" }}
+        <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
+        {{ end }}
+        <th>م</th>
+        <th>الاسم</th>
+        <th>الهاتف</th>
+        <th>المرافقين</th>
+        <th>الحالة</th>
+        <th>الدخول</th>
+        <th>وقت الدخول</th>
+        {{ if eq $.Role "manager" }}
+        <th>إجراءات</th>
+        {{ end }}
+    </tr>
+</thead>
 <tbody>
                     {{ range .AllGuests }}
                     <tr>
-                        <td><input type="checkbox" class="guest-checkbox" value="{{.ID}}"></td>
-                        <td>{{ .ID }}</td>
-                        <td>{{ .Name }}</td>
-                        <td>{{ .Phone }}</td>
-                        <td>{{ .Companions }}</td>
-                        <td>
-                            {{ if eq .Status "pending" }}<span class="status status-pending">قيد الانتظار</span>{{ end }}
-                            {{ if eq .Status "confirmed" }}<span class="status status-confirmed">مؤكد</span>{{ end }}
-                            {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
-                        </td>
-                        <td>
-                            {{ if .CheckedIn }}
-                                <span class="status status-confirmed">تم الدخول</span>
-                            {{ else }}
-                                <span class="status status-pending">لم يدخل</span>
-                            {{ end }}
-                        </td>
-                        <td>
-                            {{ if .CheckedInAt }}{{ formatDate .CheckedInAt }}{{ else }}—{{ end }}
-                        </td>
-                        <td>
-                            <button class="btn btn-primary btn-sm"
-                                data-id="{{.ID}}"
-                                data-name="{{.Name}}"
-                                data-phone="{{.Phone}}"
-                                data-companions="{{.Companions}}"
-                                data-checked="{{.CheckedIn}}"
-                                data-status="{{.Status}}"
-                                data-gender="{{.Gender}}"
-                                onclick="openEditModalFromBtn(this)">تعديل</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteGuest('{{.ID}}')">حذف</button>
-                        </td>
-                    </tr>
+    {{ if eq $.Role "manager" }}
+    <td><input type="checkbox" class="guest-checkbox" value="{{.ID}}"></td>
+    {{ end }}
+    <td>{{ .ID }}</td>
+    <td>{{ .Name }}</td>
+    <td>{{ .Phone }}</td>
+    <td>{{ .Companions }}</td>
+    <td>
+        {{ if eq .Status "pending" }}<span class="status status-pending">قيد الانتظار</span>{{ end }}
+        {{ if eq .Status "confirmed" }}<span class="status status-confirmed">مؤكد</span>{{ end }}
+        {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
+    </td>
+    <td>
+        {{ if .CheckedIn }}
+            <span class="status status-confirmed">تم الدخول</span>
+        {{ else }}
+            <span class="status status-pending">لم يدخل</span>
+        {{ end }}
+    </td>
+    <td>
+        {{ if .CheckedInAt }}{{ formatDate .CheckedInAt }}{{ else }}—{{ end }}
+    </td>
+    {{ if eq $.Role "manager" }}
+    <td>
+        <button class="btn btn-primary btn-sm"
+            data-id="{{.ID}}"
+            data-name="{{.Name}}"
+            data-phone="{{.Phone}}"
+            data-companions="{{.Companions}}"
+            data-checked="{{.CheckedIn}}"
+            data-status="{{.Status}}"
+            data-gender="{{.Gender}}"
+            onclick="openEditModalFromBtn(this)">تعديل</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteGuest('{{.ID}}')">حذف</button>
+    </td>
+    <td>
+      {{ if .InviteSent }}
+        <span class="status status-confirmed">تم</span>
+      {{ else }}
+        <span class="status status-pending">لا</span>
+      {{ end }}
+    </td>
+    {{ end }}
+</tr>
                     {{ else }}
                     <tr class="empty-row"><td colspan="9">لا يوجد مدعوين مسجلين حتى الآن.</td></tr>
                     {{ end }}
@@ -968,5 +1025,11 @@ try {
     if (raw) lastSendReport = JSON.parse(raw);
 } catch (e) {}
 </script>
+
+<script>
+// تحديث الصفحة كل 90 ثانية عشان الإحصائيات تفضل حديثة
+setTimeout(function(){ location.reload(); }, 90000);
+</script>
+
 </body>
 </html>

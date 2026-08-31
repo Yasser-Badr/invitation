@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إدارة المستخدمين</title>
+    <style>
+        body { font-family: Tahoma, Arial; background:#f0f2f5; padding:20px; }
+        .card { background:#fff; border-radius:12px; padding:20px; max-width:800px; margin:0 auto; box-shadow:0 4px 15px rgba(0,0,0,0.06); }
+        table { width:100%; border-collapse:collapse; margin-top:16px; }
+        th, td { padding:10px; border-bottom:1px solid #eee; text-align:center; }
+        th { background:#1b4332; color:#fff; }
+        input, select { padding:8px; margin:4px; border:1px solid #ddd; border-radius:6px; }
+        .btn { padding:8px 14px; border:none; border-radius:6px; color:#fff; cursor:pointer; }
+        .btn-primary { background:#1b4332; }
+        .btn-danger { background:#e74c3c; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>إدارة المستخدمين</h2>
+    <a href="/admin/dashboard">← رجوع للوحة التحكم</a>
+
+    <h3>إضافة مستخدم جديد</h3>
+    <form id="addForm">
+        <input name="name" placeholder="الاسم" required>
+        <input name="username" placeholder="اسم المستخدم" required>
+        <input name="password" type="password" placeholder="كلمة المرور" required>
+        <select name="role">
+            <option value="manager">مدير</option>
+            <option value="scanner">موظف مسح</option>
+            <option value="reception">استقبال</option>
+        </select>
+        <button type="submit" class="btn btn-primary">إضافة</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr><th>الاسم</th><th>المستخدم</th><th>الصلاحية</th><th>إجراء</th></tr>
+        </thead>
+        <tbody>
+            {{ range .Users }}
+            <tr>
+                <td>{{ .Name }}</td>
+                <td>{{ .Username }}</td>
+                <td>{{ .Role }}</td>
+                <td><button class="btn btn-danger" onclick="deleteUser({{ .ID }})">حذف</button></td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</div>
+<script>
+document.getElementById('addForm').onsubmit = function(e) {
+    e.preventDefault();
+    var fd = new FormData(this);
+    fetch('/admin/api/users', { method:'POST', body: fd })
+        .then(r => r.json()).then(d => {
+            alert(d.error || d.message);
+            if (!d.error) location.reload();
+        });
+};
+function deleteUser(id) {
+    if (!confirm('حذف هذا المستخدم؟')) return;
+    fetch('/admin/api/users/' + id, { method:'DELETE' })
+        .then(r => r.json()).then(d => {
+            alert(d.error || d.message);
+            if (!d.error) location.reload();
+        });
+}
+</script>
+</body>
+</html>

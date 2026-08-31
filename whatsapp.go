@@ -932,6 +932,78 @@ func sendLocationAfterConfirm(guest *Guest) {
 	}
 }
 
+func checkAndSendReminder() {
+	settings := getSettings()
+	if strings.TrimSpace(settings.EventDate) == "" {
+		return
+	}
+
+	loc, err := time.LoadLocation("Asia/Kuwait")
+	if err != nil {
+		loc = time.Local
+	}
+
+	eventDay, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(settings.EventDate), loc)
+	if err != nil {
+		return
+	}
+
+	// يوم التذكير = يوم الزفاف ناقص يوم واحد
+	reminderDay := eventDay.AddDate(0, 0, -1)
+	today := kuwaitNow().Format("2006-01-02")
+	if today != reminderDay.Format("2006-01-02") {
+		return
+	}
+
+	flagFile := fmt.Sprintf("./reminder_day_%s.flag", settings.EventDate)
+	if _, err := os.Stat(flagFile); err == nil {
+		return // اتبعت قبل كده
+	}
+
+	var confirmed []Guest
+	DB.Where("status = ?", "confirmed").Find(&confirmed)
+	if len(confirmed) == 0 {
+		return
+	}
+
+	fmt.Printf("📅 تذكير قبل يوم → %d مدعو مؤكد\n", len(confirmed))
+	mapsURL := strings.TrimSpace(settings.MapsURL)
+	success := 0
+
+	for _, g := range confirmed {
+		if strings.TrimSpace(g.Phone) == "" {
+			continue
+		}
+
+		msg := buildReminderMessage(&g, settings)
+
+		var sendErr error
+		if cloudToken() != "" && cloudPhoneNumberID() != "" {
+			// نفضل زرار اللوكيشن لو موجود
+			if mapsURL != "" {
+				sendErr = CloudSendLocationLink(g.Phone, mapsURL, msg)
+			} else {
+				sendErr = CloudSendText(g.Phone, msg)
+			}
+		} else {
+			if mapsURL != "" {
+				msg += "\n\n📍 " + mapsURL
+			}
+			sendErr = SendWAMessage(g.Phone, msg)
+		}
+
+		if sendErr == nil {
+			success++
+		} else {
+			fmt.Printf("❌ فشل تذكير %s: %v\n", g.Name, sendErr)
+		}
+		time.Sleep(800 * time.Millisecond)
+	}
+
+	_ = os.WriteFile(flagFile, []byte("sent"), 0644)
+	fmt.Printf("✅ تم إرسال تذكير قبل يوم لـ %d مدعو\n", success)
+}
+
 func StartWeddingReminder() {
 	go func() {
 		time.Sleep(25 * time.Second)

@@ -647,6 +647,11 @@ func BroadcastCloudHandler(c *gin.Context) {
 			successList = append(successList, resultItem{
 				ID: g.ID, Name: g.Name, Phone: g.Phone,
 			})
+			now := kuwaitNow()
+			DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
+			    "invite_sent":    true,
+	            "invite_sent_at": now,
+			})
 			fmt.Printf("✅ Cloud نجح %s\n", g.Name)
 		}
 	}

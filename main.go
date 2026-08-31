@@ -31,6 +31,8 @@ type Guest struct {
 	Status      string `gorm:"default:'pending'"` // pending | confirmed | declined
 	CheckedIn   bool   `gorm:"default:false"`
 	CheckedInAt *time.Time // وقت الدخول الفعلي (null لو لسه مدخلش)
+    InviteSent    bool       `gorm:"default:false"` // ← جديد
+	InviteSentAt  *time.Time // ← جديد
 }
 
 type InvitationSettings struct {
@@ -54,6 +56,15 @@ type InvitationSettings struct {
 	IconDateURL     string // أيقونة التاريخ
 
     EventDate string // مثال: 2026-09-20  (YYYY-MM-DD)
+    EventTime string // مثال: 19:00
+    
+}
+type AdminUser struct {
+	gorm.Model
+	Username string `gorm:"uniqueIndex"`
+	Password string
+	Role     string // "manager" | "scanner" | "reception"
+	Name     string
 }
 
 var DB *gorm.DB
@@ -64,12 +75,19 @@ func ConnectDB() {
 		log.Fatal("❌ فشل الاتصال بقاعدة البيانات:", err)
 	}
 
-	err = database.AutoMigrate(&Guest{}, &InvitationSettings{})
+    err = database.AutoMigrate(&Guest{}, &InvitationSettings{}, &AdminUser{})
 	if err != nil {
 		log.Fatal("❌ فشل عمل Migration:", err)
 	}
 	DB = database
-
+    
+    var userCount int64
+    DB.Model(&AdminUser{}).Count(&userCount)
+    if userCount == 0 {
+	    DB.Create(&AdminUser{Username: "manager", Password: "Faisal@2026", Role: "manager", Name: "مدير النظام"})
+	    DB.Create(&AdminUser{Username: "scan", Password: "Scan@123", Role: "scanner", Name: "موظف المسح"})
+	    DB.Create(&AdminUser{Username: "reception", Password: "Rec@123", Role: "reception", Name: "الاستقبال"})
+    }
 	// إنشاء إعدادات افتراضية لو مفيش
 	var count int64
 	DB.Model(&InvitationSettings{}).Count(&count)
@@ -263,16 +281,43 @@ func RenderDashboard(c *gin.Context) {
 	var allGuests []Guest
 	var confirmedGuests []Guest
 	var declinedGuests []Guest
+	var checkedInCount int64
 
-	// جلب جميع البيانات وتقسيمها
 	DB.Find(&allGuests)
 	DB.Where("status = ?", "confirmed").Find(&confirmedGuests)
 	DB.Where("status = ?", "declined").Find(&declinedGuests)
+	DB.Model(&Guest{}).Where("checked_in = ?", true).Count(&checkedInCount)
+
+	total := len(allGuests)
+	confirmed := len(confirmedGuests)
+	declined := len(declinedGuests)
+	pending := total - confirmed - declined
+
+	attendanceRate := 0.0
+	if confirmed > 0 {
+		attendanceRate = float64(checkedInCount) / float64(confirmed) * 100
+	}
+	
+    var inviteSentCount int64
+    DB.Model(&Guest{}).Where("invite_sent = ?", true).Count(&inviteSentCount)
+
+    notSentCount := int64(total) - inviteSentCount
+	
+	role := getAdminRole(c)
 
 	c.HTML(http.StatusOK, "dashboard.html", gin.H{
-		"AllGuests": allGuests,
-		"Confirmed": confirmedGuests,
-		"Declined":  declinedGuests,
+		"AllGuests":       allGuests,
+		"Confirmed":       confirmedGuests,
+		"Declined":        declinedGuests,
+		"TotalGuests":     total,
+		"ConfirmedCount":  confirmed,
+		"DeclinedCount":   declined,
+		"PendingCount":    pending,
+		"CheckedInCount":  checkedInCount,
+		"AttendanceRate":  fmt.Sprintf("%.1f", attendanceRate),
+		"Role":            role, // عشان نخفي أزرار حسب الصلاحية
+		"InviteSentCount": inviteSentCount,
+        "NotSentCount":    notSentCount,
 	})
 }
 
@@ -596,7 +641,8 @@ func UpdateSettings(c *gin.Context) {
 	settings.PrimaryColor = c.PostForm("primary_color")
 	settings.SecondaryColor = c.PostForm("secondary_color")
 	settings.EventDate = strings.TrimSpace(c.PostForm("event_date"))
-
+    settings.EventTime = strings.TrimSpace(c.PostForm("event_time"))
+    
 	// رفع الصور
 // رفع الصور + حذف القديمة
 os.MkdirAll("./public/uploads", os.ModePerm)
@@ -811,6 +857,93 @@ func ImportGuestsExcel(c *gin.Context) {
 	})
 }
 
+func ExportGuestsExcel(c *gin.Context) {
+	statusFilter := c.Query("status")   // all | confirmed | declined | pending
+	genderFilter := c.Query("gender")   // all | male | female
+	checkedFilter := c.Query("checked") // all | yes | no
+
+	var guests []Guest
+	query := DB.Model(&Guest{})
+
+	if statusFilter != "" && statusFilter != "all" {
+		query = query.Where("status = ?", statusFilter)
+	}
+	if genderFilter != "" && genderFilter != "all" {
+		query = query.Where("gender = ?", genderFilter)
+	}
+	if checkedFilter == "yes" {
+		query = query.Where("checked_in = ?", true)
+	} else if checkedFilter == "no" {
+		query = query.Where("checked_in = ?", false)
+	}
+
+	query.Order("id asc").Find(&guests)
+
+	f := excelize.NewFile()
+	sheet := "الضيوف"
+	f.SetSheetName("Sheet1", sheet)
+
+	// العناوين
+	headers := []string{"م", "الاسم", "الهاتف", "الجنس", "المرافقين", "الحالة", "الدخول", "وقت الدخول", "تاريخ التسجيل"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+
+	// تنسيق العناوين
+	style, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"1B4332"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center"},
+	})
+	f.SetCellStyle(sheet, "A1", "I1", style)
+
+	for i, g := range guests {
+		row := i + 2
+		gender := "ذكر"
+		if g.Gender == "female" {
+			gender = "أنثى"
+		}
+		status := "قيد الانتظار"
+		switch g.Status {
+		case "confirmed":
+			status = "مؤكد"
+		case "declined":
+			status = "معتذر"
+		}
+		checked := "لم يدخل"
+		checkedAt := "—"
+		if g.CheckedIn {
+			checked = "تم الدخول"
+			if g.CheckedInAt != nil {
+				checkedAt = formatKuwait(*g.CheckedInAt)
+			}
+		}
+
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), g.ID)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), g.Name)
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), g.Phone)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), gender)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), g.Companions)
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), status)
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), checked)
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), checkedAt)
+		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), formatKuwait(g.CreatedAt))
+	}
+
+	// عرض الأعمدة
+	f.SetColWidth(sheet, "A", "A", 8)
+	f.SetColWidth(sheet, "B", "B", 22)
+	f.SetColWidth(sheet, "C", "C", 16)
+	f.SetColWidth(sheet, "D", "I", 14)
+
+	filename := fmt.Sprintf("guests_export_%s.xlsx", time.Now().Format("2006-01-02_15-04"))
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("Content-Transfer-Encoding", "binary")
+	_ = f.Write(c.Writer)
+}
+
 // آخر موعد للرد = يوم الزفاف ناقص 3 أيام (نهاية اليوم بتوقيت القاهرة)
 func rsvpDeadline() (time.Time, bool) {
 	s := getSettings()
@@ -847,6 +980,85 @@ func rsvpClosedMessage() string {
 		"انتهت فترة تأكيد الحضور أو الاعتذار.\nكان آخر موعد للرد: %s\nللاستفسار تواصل مع الإدارة.",
 		formatKuwait(deadline),
 	)
+}
+func getAdminRole(c *gin.Context) string {
+	user, exists := c.Get(gin.AuthUserKey)
+	if !exists {
+		return ""
+	}
+	username := user.(string)
+
+	var admin AdminUser
+	if err := DB.Where("username = ?", username).First(&admin).Error; err != nil {
+		return ""
+	}
+	return admin.Role
+}
+
+func requireRole(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role := getAdminRole(c)
+		for _, r := range roles {
+			if role == r {
+				c.Next()
+				return
+			}
+		}
+		c.String(http.StatusForbidden, "ليس لديك صلاحية للوصول لهذه الصفحة")
+		c.Abort()
+	}
+}
+
+func RenderUsersPage(c *gin.Context) {
+	var users []AdminUser
+	DB.Find(&users)
+	c.HTML(http.StatusOK, "users.html", gin.H{
+		"Users": users,
+		"Role":  getAdminRole(c),
+	})
+}
+
+func CreateAdminUser(c *gin.Context) {
+	username := strings.TrimSpace(c.PostForm("username"))
+	password := strings.TrimSpace(c.PostForm("password"))
+	role := strings.TrimSpace(c.PostForm("role"))
+	name := strings.TrimSpace(c.PostForm("name"))
+
+	if username == "" || password == "" || role == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "كل الحقول مطلوبة"})
+		return
+	}
+	if role != "manager" && role != "scanner" && role != "reception" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "صلاحية غير صحيحة"})
+		return
+	}
+
+	user := AdminUser{Username: username, Password: password, Role: role, Name: name}
+	if err := DB.Create(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "اسم المستخدم موجود مسبقاً"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "تم إضافة المستخدم"})
+}
+
+func DeleteAdminUser(c *gin.Context) {
+	id := c.Param("id")
+	var user AdminUser
+	if err := DB.First(&user, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "المستخدم غير موجود"})
+		return
+	}
+	// منع حذف آخر مدير
+	if user.Role == "manager" {
+		var count int64
+		DB.Model(&AdminUser{}).Where("role = ?", "manager").Count(&count)
+		if count <= 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "لا يمكن حذف آخر مدير"})
+			return
+		}
+	}
+	DB.Delete(&user)
+	c.JSON(http.StatusOK, gin.H{"message": "تم الحذف"})
 }
 
 func main() {
@@ -923,41 +1135,61 @@ r.SetFuncMap(template.FuncMap{
 	// =====================================
 	// المسارات المحمية (بكلمة مرور للأدمن)
 	// =====================================
+    // بناء قائمة الحسابات من قاعدة البيانات
+    accounts := gin.Accounts{}
+    var admins []AdminUser
+    DB.Find(&admins)
+    for _, a := range admins {
+	    accounts[a.Username] = a.Password
+    }
+    // fallback لو مفيش حد
+    if len(accounts) == 0 {
+	    accounts["Yaaser Badr"] = "Yasser.12#"
+    }
 
-	adminAuth := r.Group("/", gin.BasicAuth(gin.Accounts{
-	"Yaaser Badr": "Yasser.12#",
-}))
+    adminAuth := r.Group("/", gin.BasicAuth(accounts))
 {
+	// الجميع يقدروا يدخلوا الداشبورد (بس المحتوى يختلف)
 	adminAuth.GET("/admin/dashboard", RenderDashboard)
-	adminAuth.GET("/admin/add", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "add_guest.html", gin.H{})
-	})
-		// تم إصلاح الـ nesting هنا
-	adminAuth.GET("/scan", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "scanner.html", gin.H{})
-	})
 
+	// المدير فقط
+	managerOnly := adminAuth.Group("/", requireRole("manager"))
+	{
+		managerOnly.GET("/admin/add", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "add_guest.html", gin.H{})
+		})
+		managerOnly.GET("/admin/settings", RenderSettingsPage)
+		managerOnly.POST("/admin/settings", UpdateSettings)
+		managerOnly.POST("/admin/api/import-excel", ImportGuestsExcel)
+		managerOnly.POST("/admin/api/guests/bulk-delete", DeleteGuestsBulk)
+		managerOnly.DELETE("/admin/api/guests/:id", DeleteGuestAdmin)
+		managerOnly.PUT("/admin/api/guests/:id", UpdateGuestAdmin)
+		managerOnly.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler)
+		managerOnly.POST("/admin/api/broadcast-cloud", BroadcastCloudHandler)
+		managerOnly.POST("/admin/api/cloud-test-send", CloudTestSendHandler)
+		managerOnly.GET("/admin/api/whatsapp-status", WhatsAppStatusHandler)
+		managerOnly.POST("/admin/api/whatsapp-logout", LogoutWhatsAppHandler)
+		managerOnly.GET("/admin/api/export-excel", ExportGuestsExcel)
+		managerOnly.GET("/admin/users", RenderUsersPage)
+        managerOnly.POST("/admin/api/users", CreateAdminUser)
+        managerOnly.DELETE("/admin/api/users/:id", DeleteAdminUser)
+	}
 
-	adminAuth.GET("/admin/print/:status", PrintReport)
-	adminAuth.DELETE("/admin/api/guests/:id", DeleteGuestAdmin)
-	adminAuth.PUT("/admin/api/guests/:id", UpdateGuestAdmin)
+	// المسح + المدير
+	scanAccess := adminAuth.Group("/", requireRole("manager", "scanner"))
+	{
+		scanAccess.GET("/scan", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "scanner.html", gin.H{})
+		})
+		scanAccess.GET("/api/verify/:token", APIVerify)
+		scanAccess.GET("/verify/:token", RenderVerifyPage)
+	}
 
-	adminAuth.GET("/admin/settings", RenderSettingsPage)
-	adminAuth.POST("/admin/settings", UpdateSettings)
-
-	adminAuth.POST("/admin/api/import-excel", ImportGuestsExcel)
-	adminAuth.POST("/admin/api/guests/bulk-delete", DeleteGuestsBulk)
-
-	adminAuth.GET("/admin/api/whatsapp-status", WhatsAppStatusHandler)
-	adminAuth.POST("/admin/api/whatsapp-logout", LogoutWhatsAppHandler)
-// اختبار إرسال Cloud API (محمي بـ admin)
-    adminAuth.POST("/api/cloud-test-send", CloudTestSendHandler)
-    adminAuth.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler) // whatsmeow
-    adminAuth.POST("/admin/api/broadcast-cloud", BroadcastCloudHandler)       // Cloud
-    adminAuth.POST("/admin/api/cloud-test-send", CloudTestSendHandler)
-
-	adminAuth.GET("/api/verify/:token", APIVerify)
-	adminAuth.GET("/verify/:token", RenderVerifyPage)
+	// الاستقبال + المدير (يشوف القوائم بدون تعديل)
+	receptionAccess := adminAuth.Group("/", requireRole("manager", "reception"))
+	{
+		receptionAccess.GET("/admin/print/:status", PrintReport)
+	}
 }
 	port := os.Getenv("PORT")
 	if port == "" {

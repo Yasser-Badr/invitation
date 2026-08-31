@@ -852,6 +852,11 @@ mu.Lock()
 				successList = append(successList, resultItem{
 					ID: g.ID, Name: g.Name, Phone: g.Phone,
 				})
+				now := kuwaitNow()
+                DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
+	                "invite_sent":    true,
+	                "invite_sent_at": now,
+                })
 				fmt.Printf("✅ تم الإرسال لـ %s [whatsmeow]\n", g.Name)
 			}
 			mu.Unlock()
@@ -929,21 +934,136 @@ func sendLocationAfterConfirm(guest *Guest) {
 
 func StartWeddingReminder() {
 	go func() {
-		// ننتظر شوية في البداية عشان الـ DB والواتساب يكونوا جاهزين
-		time.Sleep(30 * time.Second)
-
-		ticker := time.NewTicker(1 * time.Hour) // كل ساعة
+		time.Sleep(25 * time.Second)
+		ticker := time.NewTicker(15 * time.Minute) // كل 15 دقيقة أدق
 		defer ticker.Stop()
 
 		for {
-			checkAndSendReminder()
+			checkAndSendReminder()       // تذكير قبل بيوم
+			checkAndSendTwoHourReminder() // تذكير قبل بساعتين
+			checkAndSendThankYou()        // رسالة شكر بعد يوم
 			<-ticker.C
 		}
 	}()
-	fmt.Println("🔔 نظام التذكير قبل الزفاف شغال...")
+	fmt.Println("🔔 نظام التذكيرات والشكر شغال...")
 }
 
-func checkAndSendReminder() {
+func checkAndSendTwoHourReminder() {
+	settings := getSettings()
+	if strings.TrimSpace(settings.EventDate) == "" {
+		return
+	}
+
+	loc, err := time.LoadLocation("Asia/Kuwait")
+	if err != nil {
+		loc = time.Local
+	}
+
+	// نفترض إن الحفل يبدأ الساعة 7 مساءً (تقدر تخليها من الإعدادات بعدين)
+	eventDay, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(settings.EventDate), loc)
+    if err != nil {
+	    return
+    }
+
+    hour, min := 19, 0 // افتراضي 7 مساءً
+    if t := strings.TrimSpace(settings.EventTime); t != "" {
+	    if parts := strings.Split(t, ":"); len(parts) >= 2 {
+		    fmt.Sscanf(parts[0], "%d", &hour)
+		    fmt.Sscanf(parts[1], "%d", &min)
+	    }
+    }
+    eventStart := time.Date(eventDay.Year(), eventDay.Month(), eventDay.Day(), hour, min, 0, 0, loc)
+    reminderTime := eventStart.Add(-2 * time.Hour)
+
+	now := kuwaitNow()
+	// نسمح بنافذة 20 دقيقة عشان لو السيرفر اتأخر شوية
+	if now.Before(reminderTime) || now.After(reminderTime.Add(20*time.Minute)) {
+		return
+	}
+
+	flagFile := fmt.Sprintf("./reminder_2h_%s.flag", settings.EventDate)
+	if _, err := os.Stat(flagFile); err == nil {
+		return
+	}
+
+	var confirmed []Guest
+	DB.Where("status = ?", "confirmed").Find(&confirmed)
+	if len(confirmed) == 0 {
+		return
+	}
+
+	fmt.Printf("⏰ تذكير قبل ساعتين → %d مدعو\n", len(confirmed))
+	mapsURL := strings.TrimSpace(settings.MapsURL)
+	success := 0
+
+	for _, g := range confirmed {
+		if strings.TrimSpace(g.Phone) == "" {
+			continue
+		}
+		msg := buildTwoHourReminderMessage(&g, settings)
+
+		var sendErr error
+		if cloudToken() != "" && cloudPhoneNumberID() != "" {
+			if mapsURL != "" {
+				sendErr = CloudSendLocationLink(g.Phone, mapsURL, msg)
+			} else {
+				sendErr = CloudSendText(g.Phone, msg)
+			}
+		} else {
+			if mapsURL != "" {
+				msg += "\n\n📍 " + mapsURL
+			}
+			sendErr = SendWAMessage(g.Phone, msg)
+		}
+
+		if sendErr == nil {
+			success++
+		}
+		time.Sleep(800 * time.Millisecond)
+	}
+
+	_ = os.WriteFile(flagFile, []byte("sent"), 0644)
+	fmt.Printf("✅ تم تذكير قبل ساعتين لـ %d\n", success)
+}
+
+func buildTwoHourReminderMessage(g *Guest, s InvitationSettings) string {
+	couple := strings.TrimSpace(s.Person1)
+	if s.Person2 != "" {
+		if couple != "" {
+			couple += " و " + strings.TrimSpace(s.Person2)
+		} else {
+			couple = strings.TrimSpace(s.Person2)
+		}
+	}
+	if couple == "" {
+		couple = "العروسين"
+	}
+	location := s.LocationName
+	if location == "" {
+		location = "القاعة"
+	}
+
+	if isFemale(g) {
+		return fmt.Sprintf(
+			"يا هلا فيج يا %s 🤍\n\n"+
+				"تذكير أخير: حفل زفاف *%s* بعد ساعتين إن شاء الله ✨\n\n"+
+				"📍 المكان: %s\n\n"+
+				"لا تنسين الباركود عند الدخول\n"+
+				"ننتظرج بفارغ الصبر 💚",
+			g.Name, couple, location,
+		)
+	}
+	return fmt.Sprintf(
+		"يا هلا فيك يا %s 🤍\n\n"+
+			"تذكير أخير: حفل زفاف *%s* بعد ساعتين إن شاء الله ✨\n\n"+
+			"📍 المكان: %s\n\n"+
+			"لا تنسى الباركود عند الدخول\n"+
+			"ننتظرك بفارغ الصبر 💚",
+		g.Name, couple, location,
+	)
+}
+
+func checkAndSendThankYou() {
 	settings := getSettings()
 	if strings.TrimSpace(settings.EventDate) == "" {
 		return
@@ -959,69 +1079,83 @@ func checkAndSendReminder() {
 		return
 	}
 
-	// يوم التذكير = يوم الزفاف ناقص يوم
-	reminderDay := eventDay.AddDate(0, 0, -1)
+	// يوم الشكر = يوم الزفاف + 1
+	thankYouDay := eventDay.AddDate(0, 0, 1)
 	today := kuwaitNow().Format("2006-01-02")
-	reminderStr := reminderDay.Format("2006-01-02")
-
-	if today != reminderStr {
+	if today != thankYouDay.Format("2006-01-02") {
 		return
 	}
 
-	// نتأكد إننا مبعتناش قبل كده
-	flagFile := "./reminder_sent_" + reminderStr + ".flag"
+	flagFile := fmt.Sprintf("./thankyou_%s.flag", settings.EventDate)
 	if _, err := os.Stat(flagFile); err == nil {
 		return
 	}
 
-	var confirmed []Guest
-	DB.Where("status = ?", "confirmed").Find(&confirmed)
-	if len(confirmed) == 0 {
+	// نبعت لللي دخلوا فعلياً أو على الأقل المؤكدين
+	var guests []Guest
+	DB.Where("status = ? AND checked_in = ?", "confirmed", true).Find(&guests)
+	if len(guests) == 0 {
+		// لو محدش اتسجل دخوله، نبعت للمؤكدين
+		DB.Where("status = ?", "confirmed").Find(&guests)
+	}
+	if len(guests) == 0 {
 		return
 	}
 
-	fmt.Printf("🔔 بدء إرسال تذكير الزفاف لـ %d مدعو...\n", len(confirmed))
-
+	fmt.Printf("💌 بدء إرسال رسائل الشكر لـ %d مدعو...\n", len(guests))
 	success := 0
-	mapsURL := strings.TrimSpace(settings.MapsURL)
 
-	for _, g := range confirmed {
+	for _, g := range guests {
 		if strings.TrimSpace(g.Phone) == "" {
 			continue
 		}
-
-		msg := buildReminderMessage(&g, settings)
+		msg := buildThankYouMessage(&g, settings)
 
 		var sendErr error
-
-		// نفضل Cloud API عشان نقدر نضيف زرار الموقع
 		if cloudToken() != "" && cloudPhoneNumberID() != "" {
-			if mapsURL != "" {
-				// رسالة + زرار "فتح الموقع"
-				sendErr = CloudSendLocationLink(g.Phone, mapsURL, msg)
-			} else {
-				sendErr = CloudSendText(g.Phone, msg)
-			}
+			sendErr = CloudSendText(g.Phone, msg)
 		} else {
-			// whatsmeow (نص فقط + رابط)
-			if mapsURL != "" {
-				msg += "\n\n📍 الموقع: " + mapsURL
-			}
 			sendErr = SendWAMessage(g.Phone, msg)
 		}
-
-		if sendErr != nil {
-			fmt.Printf("❌ فشل تذكير %s: %v\n", g.Name, sendErr)
-		} else {
+		if sendErr == nil {
 			success++
-			fmt.Printf("✅ تذكير → %s\n", g.Name)
 		}
-
-		time.Sleep(900 * time.Millisecond)
+		time.Sleep(800 * time.Millisecond)
 	}
 
 	_ = os.WriteFile(flagFile, []byte("sent"), 0644)
-	fmt.Printf("🎉 تم إرسال التذكير لـ %d من أصل %d\n", success, len(confirmed))
+	fmt.Printf("🎉 تم إرسال الشكر لـ %d\n", success)
+}
+
+func buildThankYouMessage(g *Guest, s InvitationSettings) string {
+	couple := strings.TrimSpace(s.Person1)
+	if s.Person2 != "" {
+		if couple != "" {
+			couple += " و " + strings.TrimSpace(s.Person2)
+		} else {
+			couple = strings.TrimSpace(s.Person2)
+		}
+	}
+	if couple == "" {
+		couple = "العروسين"
+	}
+
+	if isFemale(g) {
+		return fmt.Sprintf(
+			"يا هلا فيج يا %s 🤍\n\n"+
+				"شكرًا من القلب على تشريفج حفل زفاف *%s*\n"+
+				"وجودج أسعدنا كثير ويارب دايم فرحتج مكتملة ✨\n\n"+
+				"مع خالص الود والتقدير 💚",
+			g.Name, couple,
+		)
+	}
+	return fmt.Sprintf(
+		"يا هلا فيك يا %s 🤍\n\n"+
+			"شكرًا من القلب على تشريفك حفل زفاف *%s*\n"+
+			"وجودك أسعدنا كثير ويارب دايم فرحتك مكتملة ✨\n\n"+
+			"مع خالص الود والتقدير 💚",
+		g.Name, couple,
+	)
 }
 
 func buildReminderMessage(g *Guest, s InvitationSettings) string {

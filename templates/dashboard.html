@@ -230,6 +230,9 @@
             <a href="/admin/api/export-excel?status=all&gender=all&checked=all" class="btn btn-teal">📊 تصدير Excel</a>
             <a href="/admin/users" class="btn btn-purple">👥 إدارة المستخدمين</a>
         {{ end }}
+        {{ if eq .Role "manager" }}
+            <a class="btn" href="/grad/admin/dashboard" style="background:#1a365d;color:#fff;padding:9px 14px;border-radius:8px;text-decoration:none;font-weight:600;">🎓 حفل التخرج</a>
+        {{ end }}
 
         {{ if or (eq .Role "manager") (eq .Role "scanner") }}
             <a href="/scan" class="btn btn-success" target="_blank">📷 فحص الباركود</a>

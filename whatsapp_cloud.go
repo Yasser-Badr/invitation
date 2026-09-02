@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"sync"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -517,7 +518,7 @@ func BroadcastCloudHandler(c *gin.Context) {
 	}
 
 	var mediaPublicURL string
-	var mediaKind string // "image" | "video"
+	var mediaKind string
 
 	fileHeader, err := c.FormFile("media")
 	if err == nil && fileHeader != nil {
@@ -598,63 +599,103 @@ func BroadcastCloudHandler(c *gin.Context) {
 		Phone string `json:"phone"`
 		Error string `json:"error,omitempty"`
 	}
-	var successList, failList []resultItem
 
-	for _, g := range guests {
-		if strings.TrimSpace(g.Phone) == "" {
-			failList = append(failList, resultItem{ID: g.ID, Name: g.Name, Phone: g.Phone, Error: "رقم الهاتف فارغ"})
+	var (
+		successList []resultItem
+		failList    []resultItem
+		mu          sync.Mutex
+		wg          sync.WaitGroup
+	)
+
+	// Cloud API أكثر حساسية للـ rate limit → 3 متزامنين كحد أقصى
+	const maxWorkers = 3
+	sem := make(chan struct{}, maxWorkers)
+
+	for _, guest := range guests {
+		if strings.TrimSpace(guest.Phone) == "" {
+			mu.Lock()
+			failList = append(failList, resultItem{
+				ID: guest.ID, Name: guest.Name, Phone: guest.Phone, Error: "رقم الهاتف فارغ",
+			})
+			mu.Unlock()
 			continue
 		}
-		inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
-		fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
-		fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
 
-		var sendErr error
-		if sendMode == "buttons" {
-			if mediaPublicURL != "" && mediaKind == "video" {
-				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
-				if sendErr == nil {
-					time.Sleep(900 * time.Millisecond)
-					sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
+		wg.Add(1)
+		sem <- struct{}{}
+
+		go func(g Guest) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			defer func() {
+				if r := recover(); r != nil {
+					mu.Lock()
+					failList = append(failList, resultItem{
+						ID: g.ID, Name: g.Name, Phone: g.Phone,
+						Error: fmt.Sprintf("panic: %v", r),
+					})
+					mu.Unlock()
+				}
+			}()
+
+			inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
+			fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
+			fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
+
+			var sendErr error
+			if sendMode == "buttons" {
+				if mediaPublicURL != "" && mediaKind == "video" {
+					sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
+					if sendErr == nil {
+						time.Sleep(700 * time.Millisecond)
+						sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
+					}
+				} else {
+					imgURL := ""
+					if mediaKind == "image" {
+						imgURL = mediaPublicURL
+					}
+					sendErr = CloudSendInvite(g.Phone, fullMessage, imgURL)
+				}
+				if sendErr == nil && adminWhatsAppURL() != "" {
+					time.Sleep(500 * time.Millisecond)
+					_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
+				}
+			} else if mediaPublicURL != "" {
+				if mediaKind == "video" {
+					sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
+				} else {
+					sendErr = CloudSendImageByURL(g.Phone, mediaPublicURL, fullMessage)
 				}
 			} else {
-				imgURL := ""
-				if mediaKind == "image" {
-					imgURL = mediaPublicURL
-				}
-				sendErr = CloudSendInvite(g.Phone, fullMessage, imgURL)
+				sendErr = CloudSendText(g.Phone, fullMessage)
 			}
-			if sendErr == nil && adminWhatsAppURL() != "" {
-				time.Sleep(700 * time.Millisecond)
-				_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
-			}
-		} else if mediaPublicURL != "" {
-			if mediaKind == "video" {
-				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
-			} else {
-				sendErr = CloudSendImageByURL(g.Phone, mediaPublicURL, fullMessage)
-			}
-		} else {
-			sendErr = CloudSendText(g.Phone, fullMessage)
-		}
 
-		if sendErr != nil {
-			failList = append(failList, resultItem{
-				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
-			})
-			fmt.Printf("❌ Cloud فشل %s: %v\n", g.Name, sendErr)
-		} else {
-			successList = append(successList, resultItem{
-				ID: g.ID, Name: g.Name, Phone: g.Phone,
-			})
-			now := kuwaitNow()
-			DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
-			    "invite_sent":    true,
-	            "invite_sent_at": now,
-			})
-			fmt.Printf("✅ Cloud نجح %s\n", g.Name)
-		}
+			mu.Lock()
+			if sendErr != nil {
+				failList = append(failList, resultItem{
+					ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
+				})
+				fmt.Printf("❌ Cloud فشل %s: %v\n", g.Name, sendErr)
+			} else {
+				successList = append(successList, resultItem{
+					ID: g.ID, Name: g.Name, Phone: g.Phone,
+				})
+				now := kuwaitNow()
+				_ = DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
+					"invite_sent":    true,
+					"invite_sent_at": now,
+				})
+				fmt.Printf("✅ Cloud نجح %s\n", g.Name)
+			}
+			mu.Unlock()
+
+			time.Sleep(600 * time.Millisecond)
+		}(guest)
 	}
+
+	wg.Wait()
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":       fmt.Sprintf("Cloud API: %d نجح، %d فشل", len(successList), len(failList)),

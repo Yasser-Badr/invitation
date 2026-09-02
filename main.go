@@ -1061,6 +1061,35 @@ func DeleteAdminUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "تم الحذف"})
 }
 
+// Middleware تحقق من المستخدم من قاعدة البيانات في كل طلب
+func dynamicBasicAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, pass, ok := c.Request.BasicAuth()
+		if !ok {
+			c.Header("WWW-Authenticate", `Basic realm="Admin"`)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		var admin AdminUser
+		if err := DB.Where("username = ?", user).First(&admin).Error; err != nil {
+			c.Header("WWW-Authenticate", `Basic realm="Admin"`)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		if admin.Password != pass {
+			c.Header("WWW-Authenticate", `Basic realm="Admin"`)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		// نخزن اسم المستخدم عشان getAdminRole يشتغل
+		c.Set(gin.AuthUserKey, admin.Username)
+		c.Next()
+	}
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("⚠️ لم يتم تحميل .env:", err)
@@ -1136,18 +1165,7 @@ r.SetFuncMap(template.FuncMap{
 	// المسارات المحمية (بكلمة مرور للأدمن)
 	// =====================================
     // بناء قائمة الحسابات من قاعدة البيانات
-    accounts := gin.Accounts{}
-    var admins []AdminUser
-    DB.Find(&admins)
-    for _, a := range admins {
-	    accounts[a.Username] = a.Password
-    }
-    // fallback لو مفيش حد
-    if len(accounts) == 0 {
-	    accounts["Yaaser Badr"] = "Yasser.12#"
-    }
-
-    adminAuth := r.Group("/", gin.BasicAuth(accounts))
+    adminAuth := r.Group("/", dynamicBasicAuth())
 {
 	// الجميع يقدروا يدخلوا الداشبورد (بس المحتوى يختلف)
 	adminAuth.GET("/admin/dashboard", RenderDashboard)

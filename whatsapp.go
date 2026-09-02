@@ -728,8 +728,7 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل قراءة الملف المرفق"})
 			return
 		}
-		
-        mediaFileName = fileHeader.Filename
+		mediaFileName = fileHeader.Filename
 		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 		switch ext {
 		case ".jpg", ".jpeg", ".png", ".webp", ".gif":
@@ -789,40 +788,70 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 	}
 	baseURL := fmt.Sprintf("%s://%s", scheme, host)
 
-	var wg sync.WaitGroup
-	// var successCount, failCount int
-	var mu sync.Mutex
 	type resultItem struct {
 		ID    uint   `json:"id"`
 		Name  string `json:"name"`
 		Phone string `json:"phone"`
 		Error string `json:"error,omitempty"`
 	}
-	var successList, failList []resultItem
+
+	var (
+		successList []resultItem
+		failList    []resultItem
+		mu          sync.Mutex
+		wg          sync.WaitGroup
+	)
+
+	// حد أقصى 5 إرسالات متزامنة (آمن لـ whatsmeow)
+	const maxWorkers = 5
+	sem := make(chan struct{}, maxWorkers)
 
 	for _, guest := range guests {
 		if strings.TrimSpace(guest.Phone) == "" {
+			mu.Lock()
+			failList = append(failList, resultItem{
+				ID: guest.ID, Name: guest.Name, Phone: guest.Phone, Error: "رقم الهاتف فارغ",
+			})
+			mu.Unlock()
 			continue
 		}
+
 		wg.Add(1)
+		sem <- struct{}{} // انتظر مكان فاضي
+
 		go func(g Guest) {
 			defer wg.Done()
+			defer func() { <-sem }() // حرر المكان
+
+			// حماية من أي panic داخل الإرسال
+			defer func() {
+				if r := recover(); r != nil {
+					mu.Lock()
+					failList = append(failList, resultItem{
+						ID: g.ID, Name: g.Name, Phone: g.Phone,
+						Error: fmt.Sprintf("panic: %v", r),
+					})
+					mu.Unlock()
+				}
+			}()
+
 			inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
 			fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
 			fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
-			
-            var sendErr error
+
+			var sendErr error
 			if sendMode == "buttons" {
 				if len(mediaData) > 0 {
-					if mediaType == "image" {
+					switch mediaType {
+					case "image":
 						sendErr = SendWAImage(g.Phone, mediaData, fullMessage)
-					} else if mediaType == "video" {
+					case "video":
 						sendErr = SendWAVideo(g.Phone, mediaData, fullMessage)
-					} else {
+					default:
 						sendErr = SendWADocument(g.Phone, mediaData, mediaFileName, fullMessage)
 					}
 					if sendErr == nil {
-						time.Sleep(600 * time.Millisecond)
+						time.Sleep(500 * time.Millisecond)
 						sendErr = SendWAButtons(g.Phone, "للرد على الدعوة اختر:", "أو اكتب: تأكيد / اعتذار")
 					}
 				} else {
@@ -831,18 +860,20 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 				}
 			} else {
 				if len(mediaData) > 0 {
-					if mediaType == "image" {
+					switch mediaType {
+					case "image":
 						sendErr = SendWAImage(g.Phone, mediaData, fullMessage)
-					} else if mediaType == "video" {
+					case "video":
 						sendErr = SendWAVideo(g.Phone, mediaData, fullMessage)
-					} else {
+					default:
 						sendErr = SendWADocument(g.Phone, mediaData, mediaFileName, fullMessage)
 					}
 				} else {
 					sendErr = SendWAMessage(g.Phone, fullMessage)
 				}
 			}
-mu.Lock()
+
+			mu.Lock()
 			if sendErr != nil {
 				failList = append(failList, resultItem{
 					ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
@@ -853,15 +884,19 @@ mu.Lock()
 					ID: g.ID, Name: g.Name, Phone: g.Phone,
 				})
 				now := kuwaitNow()
-                DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
-	                "invite_sent":    true,
-	                "invite_sent_at": now,
-                })
+				_ = DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
+					"invite_sent":    true,
+					"invite_sent_at": now,
+				})
 				fmt.Printf("✅ تم الإرسال لـ %s [whatsmeow]\n", g.Name)
 			}
 			mu.Unlock()
+
+			// تأخير بسيط بين كل إرسال لتقليل الضغط
+			time.Sleep(400 * time.Millisecond)
 		}(guest)
 	}
+
 	wg.Wait()
 
 	c.JSON(http.StatusOK, gin.H{

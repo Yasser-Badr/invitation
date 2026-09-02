@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة تحكم حفل التخرج</title>
+  <style>
+    :root {
+      --primary: #1a365d;
+      --accent: #25D366;
+      --danger: #e74c3c;
+      --bg: #f0f2f5;
+      --card: #fff;
+      --muted: #7f8c8d;
+      --border: #e8ecef;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 16px; color: #2c3e50; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .header {
+      background: var(--card); border-radius: 12px; padding: 18px 22px;
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06); margin-bottom: 16px;
+    }
+    .header h2 { margin: 0; color: var(--primary); font-size: 1.3rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn {
+      padding: 9px 14px; border-radius: 8px; border: none; color: #fff; font-weight: 600;
+      font-size: 13px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-primary { background: var(--primary); }
+    .btn-green { background: var(--accent); }
+    .btn-danger { background: var(--danger); }
+    .btn-gray { background: #34495e; }
+    .btn-teal { background: #16a085; }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+    .stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px; margin-bottom: 16px;
+    }
+    .stat {
+      background: var(--card); border-radius: 12px; padding: 16px; text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .stat .label { font-size: 13px; color: var(--muted); }
+    .stat .num { font-size: 26px; font-weight: 700; color: var(--primary); margin-top: 4px; }
+    .panel {
+      background: var(--card); border-radius: 12px; padding: 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    th, td { padding: 11px 8px; text-align: center; border-bottom: 1px solid var(--border); font-size: 13px; }
+    th { background: var(--primary); color: #fff; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .ok { background: #d4edda; color: #155724; }
+    .no { background: #fef3cd; color: #856404; }
+    .empty { padding: 28px; color: var(--muted); text-align: center; }
+    .modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      justify-content: center; align-items: center; z-index: 100; padding: 16px;
+    }
+    .modal-box {
+      background: #fff; border-radius: 12px; padding: 22px; width: 100%; max-width: 400px;
+    }
+    .modal-box label { display: block; font-weight: 600; font-size: 13px; margin: 8px 0 4px; }
+    .modal-box input, .modal-box select {
+      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;
+    }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>🎓 لوحة تحكم حفل التخرج</h2>
+    <div class="actions">
+      {{ if eq .Role "manager" }}
+      <a class="btn btn-primary" href="/grad/admin/add">➕ إضافة</a>
+      <button class="btn btn-teal" onclick="document.getElementById('excelIn').click()">📥 استيراد Excel</button>
+      <input type="file" id="excelIn" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this)">
+      <a class="btn btn-teal" href="/grad/admin/api/export-excel">📊 تصدير</a>
+      <a class="btn btn-primary" href="/grad/admin/settings">⚙️ الإعدادات</a>
+      <button class="btn btn-green" onclick="broadcastAll()">📤 إرسال الدعوات</button>
+      {{ end }}
+      {{ if or (eq .Role "manager") (eq .Role "scanner") }}
+      <a class="btn btn-gray" href="/grad/scan" target="_blank">📷 مسح الباركود</a>
+      {{ end }}
+      <a class="btn btn-gray" href="/admin/dashboard">← الزفاف</a>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">الإجمالي</div><div class="num">{{ .Total }}</div></div>
+    <div class="stat"><div class="label">تم الإرسال</div><div class="num" style="color:#16a085">{{ .InviteSent }}</div></div>
+    <div class="stat"><div class="label">لم يُرسل</div><div class="num" style="color:#e67e22">{{ .NotSent }}</div></div>
+    <div class="stat"><div class="label">دخلوا</div><div class="num" style="color:#2980b9">{{ .CheckedIn }}</div></div>
+  </div>
+
+  <div class="panel">
+    {{ if eq .Role "manager" }}
+    <div class="toolbar">
+      <button class="btn btn-danger btn-sm" onclick="deleteSelected()">🗑️ حذف المحددين</button>
+    </div>
+    {{ end }}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            {{ if eq .Role "manager" }}<th><input type="checkbox" id="selAll" onclick="toggleAll(this)"></th>{{ end }}
+            <th>م</th>
+            <th>الاسم</th>
+            <th>الهاتف</th>
+            <th>المرافقين</th>
+            <th>إرسال</th>
+            <th>دخول</th>
+            {{ if eq .Role "manager" }}<th>إجراءات</th>{{ end }}
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .Guests }}
+          <tr>
+            {{ if eq $.Role "manager" }}
+            <td><input type="checkbox" class="gcb" value="{{ .ID }}"></td>
+            {{ end }}
+            <td>{{ .ID }}</td>
+            <td>{{ .Name }}</td>
+            <td dir="ltr">{{ .Phone }}</td>
+            <td>{{ .Companions }}</td>
+            <td>{{ if .InviteSent }}<span class="badge ok">تم</span>{{ else }}<span class="badge no">لا</span>{{ end }}</td>
+            <td>{{ if .CheckedIn }}<span class="badge ok">دخل</span>{{ else }}<span class="badge no">—</span>{{ end }}</td>
+            {{ if eq $.Role "manager" }}
+            <td>
+              <button class="btn btn-primary btn-sm"
+                data-id="{{ .ID }}" data-name="{{ .Name }}" data-phone="{{ .Phone }}"
+                data-companions="{{ .Companions }}" data-gender="{{ .Gender }}"
+                data-checked="{{ .CheckedIn }}"
+                onclick="openEdit(this)">تعديل</button>
+              <button class="btn btn-danger btn-sm" onclick="delOne({{ .ID }})">حذف</button>
+            </td>
+            {{ end }}
+          </tr>
+          {{ else }}
+          <tr><td class="empty" colspan="8">لا يوجد خريجين بعد</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="editModal" class="modal">
+  <div class="modal-box">
+    <h3 style="margin-top:0;color:#1a365d">تعديل خريج</h3>
+    <input type="hidden" id="eId">
+    <label>الاسم</label>
+    <input id="eName">
+    <label>الهاتف</label>
+    <input id="ePhone">
+    <label>المرافقين</label>
+    <input id="eComp" type="number" min="0">
+    <label>النوع</label>
+    <select id="eGender">
+      <option value="male">ذكر</option>
+      <option value="female">أنثى</option>
+    </select>
+    <label>الدخول</label>
+    <select id="eChecked">
+      <option value="false">لم يدخل</option>
+      <option value="true">دخل</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeEdit()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveEdit()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleAll(src) {
+  document.querySelectorAll('.gcb').forEach(function(c){ c.checked = src.checked; });
+}
+function delOne(id) {
+  if (!confirm('حذف هذا الخريج؟')) return;
+  fetch('/grad/admin/api/guests/' + id, { method: 'DELETE' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ alert(d.message || d.error); location.reload(); });
+}
+function deleteSelected() {
+  var ids = Array.prototype.map.call(document.querySelectorAll('.gcb:checked'), function(c){ return parseInt(c.value,10); });
+  if (!ids.length) { alert('حدد واحد على الأقل'); return; }
+  if (!confirm('حذف ' + ids.length + ' خريج؟')) return;
+  var left = ids.length;
+  ids.forEach(function(id){
+    fetch('/grad/admin/api/guests/' + id, { method: 'DELETE' })
+      .then(function(){ left--; if (left===0) location.reload(); });
+  });
+}
+function openEdit(btn) {
+  document.getElementById('eId').value = btn.getAttribute('data-id');
+  document.getElementById('eName').value = btn.getAttribute('data-name');
+  document.getElementById('ePhone').value = btn.getAttribute('data-phone');
+  document.getElementById('eComp').value = btn.getAttribute('data-companions');
+  document.getElementById('eGender').value = btn.getAttribute('data-gender') === 'female' ? 'female' : 'male';
+  document.getElementById('eChecked').value = btn.getAttribute('data-checked') === 'true' ? 'true' : 'false';
+  document.getElementById('editModal').style.display = 'flex';
+}
+function closeEdit(){ document.getElementById('editModal').style.display = 'none'; }
+function saveEdit() {
+  var id = document.getElementById('eId').value;
+  var body = {
+    name: document.getElementById('eName').value,
+    phone: document.getElementById('ePhone').value,
+    companions: parseInt(document.getElementById('eComp').value, 10) || 0,
+    gender: document.getElementById('eGender').value,
+    checked_in: document.getElementById('eChecked').value === 'true'
+  };
+  fetch('/grad/admin/api/guests/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) alert(d.error);
+      else { alert(d.message || 'تم'); location.reload(); }
+    });
+}
+function importExcel(input) {
+  if (!input.files || !input.files[0]) return;
+  var fd = new FormData();
+  fd.append('excel', input.files[0]);
+  fetch('/grad/admin/api/import-excel', { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      alert((d.message || '') + '\nنجاح: ' + (d.success_count||0) + ' | فشل: ' + (d.fail_count||0));
+      location.reload();
+    });
+  input.value = '';
+}
+function broadcastAll() {
+  if (!confirm('إرسال الدعوات لمن لم تُرسل له بعد عبر whatsmeow؟')) return;
+  fetch('/grad/admin/api/broadcast', { method: 'POST', body: new FormData() })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { alert(d.error); return; }
+      alert(d.message || 'تم');
+      location.reload();
+    })
+    .catch(function(){ alert('خطأ اتصال'); });
+}
+</script>
+</body>
+</html>

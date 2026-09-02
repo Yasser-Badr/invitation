@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>إضافة خريج</title>
+  <style>
+    body{font-family:Tahoma;background:#f0f2f5;padding:20px}
+    .card{background:#fff;max-width:420px;margin:0 auto;padding:24px;border-radius:12px}
+    label{display:block;margin:10px 0 4px;font-weight:bold}
+    input,select{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box}
+    button{width:100%;margin-top:16px;padding:12px;background:#1a365d;color:#fff;border:none;border-radius:8px;font-size:16px}
+  </style>
+</head>
+<body>
+<div class="card">
+  <h2>إضافة خريج / خريجة</h2>
+  <a href="/grad/admin/dashboard">← رجوع</a>
+  <form id="f">
+    <label>الاسم</label>
+    <input name="name" required>
+    <label>الهاتف</label>
+    <input name="phone" required>
+    <label>المرافقين</label>
+    <input name="companions" type="number" value="0" min="0">
+    <label>النوع</label>
+    <select name="gender">
+      <option value="male">ذكر</option>
+      <option value="female">أنثى</option>
+    </select>
+    <button type="submit">حفظ</button>
+  </form>
+</div>
+<script>
+document.getElementById('f').onsubmit = function(e) {
+  e.preventDefault();
+  var fd = new FormData(this);
+  fetch('/grad/admin/api/guests', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      name: fd.get('name'),
+      phone: fd.get('phone'),
+      companions: parseInt(fd.get('companions')||0, 10),
+      gender: fd.get('gender')
+    })
+  }).then(r => r.json()).then(d => {
+    alert(d.error || d.message);
+    if (!d.error) location.href = '/grad/admin/dashboard';
+  });
+};
+</script>
+</body>
+</html>

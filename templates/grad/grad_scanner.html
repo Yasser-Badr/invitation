@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مسح باركود التخرج</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: Tahoma, sans-serif; background: #0f2744; color: #fff; margin: 0; padding: 16px; text-align: center; }
+    h2 { margin: 8px 0 16px; }
+    #reader { max-width: 400px; margin: 0 auto; border-radius: 12px; overflow: hidden; }
+    .result {
+      max-width: 400px; margin: 16px auto; padding: 16px; border-radius: 12px;
+      background: rgba(255,255,255,0.1); display: none;
+    }
+    .result.ok { background: #1e7e34; display: block; }
+    .result.err { background: #c0392b; display: block; }
+    .result.again { background: #b7791f; display: block; }
+    a { color: #90cdf4; }
+  </style>
+</head>
+<body>
+  <h2>🎓 تسجيل حضور حفل التخرج</h2>
+  <div id="reader"></div>
+  <div id="out" class="result"></div>
+  <p style="margin-top:20px"><a href="/grad/admin/dashboard">← لوحة التحكم</a></p>
+
+<script>
+var lastToken = "";
+var lock = false;
+
+function show(type, html) {
+  var el = document.getElementById("out");
+  el.className = "result " + type;
+  el.innerHTML = html;
+}
+
+function onScan(decoded) {
+  if (lock) return;
+  var token = decoded;
+  // لو الرابط كامل نستخرج التوكن
+  var m = decoded.match(/grad\/verify\/([a-f0-9\-]+)/i) || decoded.match(/([a-f0-9\-]{36})/i);
+  if (m) token = m[1];
+  if (token === lastToken) return;
+  lastToken = token;
+  lock = true;
+
+  fetch("/grad/public-verify/" + encodeURIComponent(token) + "?key=" + encodeURIComponent("Yasser.12#"))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success) {
+        show("err", "❌ " + (d.error || "فشل"));
+      } else if (d.already_checked_in) {
+        show("again", "⚠️ " + d.name + "<br>تم التسجيل مسبقًا<br>" + (d.checked_in_at || ""));
+      } else {
+        show("ok", "✅ " + d.name + "<br>المرافقون: " + (d.companions || 0) + "<br>" + (d.message || ""));
+      }
+      setTimeout(function(){ lock = false; lastToken = ""; }, 2500);
+    })
+    .catch(function(){
+      show("err", "خطأ اتصال");
+      lock = false;
+    });
+}
+
+var scanner = new Html5Qrcode("reader");
+Html5Qrcode.getCameras().then(function(cams){
+  var id = cams && cams.length ? cams[cams.length - 1].id : null;
+  scanner.start(id || { facingMode: "environment" }, { fps: 8, qrbox: 220 }, onScan);
+}).catch(function(){
+  scanner.start({ facingMode: "environment" }, { fps: 8, qrbox: 220 }, onScan);
+});
+</script>
+</body>
+</html>

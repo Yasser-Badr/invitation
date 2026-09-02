@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إعدادات دعوة التخرج</title>
+  <style>
+    body { font-family: Tahoma, sans-serif; background: #f4f7f6; padding: 20px; margin: 0; }
+    .container { max-width: 720px; margin: 0 auto; background: #fff; padding: 28px; border-radius: 14px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); }
+    h2 { color: #1a365d; text-align: center; }
+    h3 { color: #1a365d; margin: 24px 0 12px; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    input, textarea { width: 100%; padding: 11px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+    textarea { min-height: 70px; }
+    .row { display: flex; gap: 12px; }
+    .row .form-group { flex: 1; }
+    button { width: 100%; padding: 14px; background: #1a365d; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 12px; }
+    .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 14px; }
+    .back { display: inline-block; margin-bottom: 14px; color: #1a365d; text-decoration: none; font-weight: bold; }
+    .preview { max-height: 70px; border-radius: 8px; margin-bottom: 6px; border: 1px solid #eee; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="/grad/admin/dashboard">← العودة للوحة التخرج</a>
+  <h2>⚙️ إعدادات دعوة حفل التخرج</h2>
+
+  {{ if eq .success "1" }}
+  <div class="success">تم حفظ التعديلات ✅</div>
+  {{ end }}
+
+  <form method="POST" action="/grad/admin/settings" enctype="multipart/form-data">
+    <h3>النصوص</h3>
+    <div class="form-group">
+      <label>عنوان الدعوة (مثال: دعوة)</label>
+      <input name="event_title" value="{{ .Settings.EventTitle }}" required>
+    </div>
+    <div class="form-group">
+      <label>السطر التوضيحي (خريجي وخريجات...)</label>
+      <textarea name="event_subtitle">{{ .Settings.EventSubtitle }}</textarea>
+    </div>
+    <div class="form-group">
+      <label>السطر الرئيسي (لحضور حفل التخرج)</label>
+      <input name="main_line" value="{{ .Settings.MainLine }}">
+    </div>
+    <div class="form-group">
+      <label>سطر الباركود</label>
+      <input name="sub_line" value="{{ .Settings.SubLine }}">
+    </div>
+    <div class="form-group">
+      <label>نص التاريخ</label>
+      <textarea name="date_text" rows="2">{{ .Settings.DateText }}</textarea>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>تاريخ الحفل</label>
+        <input type="date" name="event_date" value="{{ .Settings.EventDate }}">
+      </div>
+      <div class="form-group">
+        <label>وقت البداية</label>
+        <input type="time" name="event_time" value="{{ .Settings.EventTime }}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>اسم المكان</label>
+        <input name="location_name" value="{{ .Settings.LocationName }}">
+      </div>
+      <div class="form-group">
+        <label>العنوان</label>
+        <input name="location_address" value="{{ .Settings.LocationAddress }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>رابط الخرائط</label>
+      <input type="url" name="maps_url" value="{{ .Settings.MapsURL }}">
+    </div>
+    <div class="form-group">
+      <label>ملاحظة التذييل (للاستفسار...)</label>
+      <input name="footer_note" value="{{ .Settings.FooterNote }}">
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>اللون الأساسي</label>
+        <input type="color" name="primary_color" value="{{ .Settings.PrimaryColor }}">
+      </div>
+      <div class="form-group">
+        <label>اللون الثانوي</label>
+        <input type="color" name="secondary_color" value="{{ .Settings.SecondaryColor }}">
+      </div>
+    </div>
+
+    <h3>الصور</h3>
+    <div class="form-group">
+      <label>شعار الجامعة / اللوجو</label>
+      {{ if .Settings.LogoURL }}
+        <div><img class="preview" src="{{ .Settings.LogoURL }}"><br>
+        <label><input type="checkbox" name="remove_logo" value="1"> حذف</label></div>
+      {{ end }}
+      <input type="file" name="logo" accept="image/*">
+    </div>
+    <div class="form-group">
+      <label>خلفية التصميم (اختياري — تُرسل مع الرسالة)</label>
+      {{ if .Settings.BackgroundURL }}
+        <div><img class="preview" src="{{ .Settings.BackgroundURL }}"><br>
+        <label><input type="checkbox" name="remove_background" value="1"> حذف</label></div>
+      {{ end }}
+      <input type="file" name="background" accept="image/*">
+    </div>
+
+    <button type="submit">💾 حفظ</button>
+  </form>
+</div>
+</body>
+</html>

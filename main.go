@@ -1135,8 +1135,8 @@ r.SetFuncMap(template.FuncMap{
 	},
 })
 
-	r.LoadHTMLGlob("templates/*")
-	r.LoadHTMLGlob("templates/grad/*")
+	r.LoadHTMLGlob("templates/*.html")
+	r.LoadHTMLGlob("templates/grad/*.html")
 	r.Static("/public", "./public")
 
 	// =====================================

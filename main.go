@@ -1101,6 +1101,8 @@ func main() {
 	fmt.Printf("TOKEN len=%d | PHONE_ID=%s\n", len(t), os.Getenv("WA_PHONE_NUMBER_ID"))
 	
 	ConnectDB()
+	ConnectGradDB()
+	
     InitWhatsApp()
     StartWeddingReminder()
 	r := gin.Default()
@@ -1134,6 +1136,7 @@ r.SetFuncMap(template.FuncMap{
 })
 
 	r.LoadHTMLGlob("templates/*")
+	r.LoadHTMLGlob("templates/grad/*")
 	r.Static("/public", "./public")
 
 	// =====================================
@@ -1209,6 +1212,49 @@ r.SetFuncMap(template.FuncMap{
 		receptionAccess.GET("/admin/print/:status", PrintReport)
 	}
 }
+
+// =====================================
+// نظام حفل التخرج (منفصل)
+// =====================================
+gradAuth := r.Group("/grad", dynamicBasicAuth())
+{
+	gradAuth.GET("/admin/dashboard", GradRenderDashboard)
+
+	gradManager := gradAuth.Group("/", requireRole("manager"))
+	{
+		gradManager.GET("/admin/add", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "grad_add_guest.html", gin.H{})
+		})
+		gradManager.GET("/admin/settings", GradRenderSettings)
+		gradManager.POST("/admin/settings", GradUpdateSettings)
+		gradManager.POST("/admin/api/guests", GradCreateGuest)
+		gradManager.DELETE("/admin/api/guests/:id", GradDeleteGuest)
+		gradManager.PUT("/admin/api/guests/:id", GradUpdateGuest)
+		gradManager.POST("/admin/api/import-excel", GradImportExcel)
+		gradManager.POST("/admin/api/broadcast", GradBroadcastHandler) // whatsmeow فقط
+		gradManager.GET("/admin/api/export-excel", GradExportExcel)
+	}
+
+	gradScan := gradAuth.Group("/", requireRole("manager", "scanner"))
+	{
+		gradScan.GET("/scan", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "grad_scanner.html", gin.H{})
+		})
+		gradScan.GET("/api/verify/:token", GradAPIVerify)
+		gradScan.GET("/verify/:token", GradRenderVerifyPage)
+	}
+}
+
+// صفحة عامة للمدعو (عرض الدعوة + الباركود) — بدون تأكيد/اعتذار
+r.GET("/grad/invite/:token", GradRenderInvitePage)
+// في main.go — مسارات عامة
+r.GET("/grad/public-verify/:token", func(c *gin.Context) {
+	if c.Query("key") != os.Getenv("GRAD_SCAN_KEY") {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "غير مصرح"})
+		return
+	}
+	GradAPIVerify(c)
+})
 	port := os.Getenv("PORT")
 	if port == "" {
     	port = "8080"

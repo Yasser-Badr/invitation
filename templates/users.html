@@ -33,21 +33,34 @@
         <button type="submit" class="btn btn-primary">إضافة</button>
     </form>
 
-    <table>
-        <thead>
-            <tr><th>الاسم</th><th>المستخدم</th><th>الصلاحية</th><th>إجراء</th></tr>
-        </thead>
-        <tbody>
-            {{ range .Users }}
-            <tr>
-                <td>{{ .Name }}</td>
-                <td>{{ .Username }}</td>
-                <td>{{ .Role }}</td>
-                <td><button class="btn btn-danger" onclick="deleteUser({{ .ID }})">حذف</button></td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+<table>
+    <thead>
+        <tr>
+            <th>الاسم</th>
+            <th>المستخدم</th>
+            <th>كلمة المرور</th>
+            <th>الصلاحية</th>
+            <th>إجراء</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .Users }}
+        <tr>
+            <td>{{ .Name }}</td>
+            <td>{{ .Username }}</td>
+            <td style="font-family: monospace; direction: ltr;">{{ .Password }}</td>
+            <td>
+                {{ if eq .Role "manager" }}مدير{{ end }}
+                {{ if eq .Role "scanner" }}موظف مسح{{ end }}
+                {{ if eq .Role "reception" }}استقبال{{ end }}
+            </td>
+            <td>
+                <button class="btn btn-danger" onclick="deleteUser({{ .ID }})">حذف</button>
+            </td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
 </div>
 <script>
 document.getElementById('addForm').onsubmit = function(e) {

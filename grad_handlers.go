@@ -89,39 +89,38 @@ func GradRenderInvitePage(c *gin.Context) {
 func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 	companionsText := "بدون مرافقين"
 	if g.Companions > 0 {
-		companionsText = fmt.Sprintf("%d مرافق", g.Companions)
+		companionsText = fmt.Sprintf("%d", g.Companions)
 	}
 
-	// نبني النص بدون Sprintf على نصوص الإعدادات (عشان % ما يبوظش)
 	var b strings.Builder
-	b.WriteString("يا هلا فيك يا *")
+	b.WriteString("يا هلا فيك يا ")
 	b.WriteString(g.Name)
 	b.WriteString("* 🎓\n\n")
 
 	if s.MainLine != "" {
-		b.WriteString("*")
+		b.WriteString(" ")
 		b.WriteString(s.MainLine)
-		b.WriteString("*\n")
+		b.WriteString("\n")
 	}
 	if s.EventSubtitle != "" {
 		b.WriteString(s.EventSubtitle)
 		b.WriteString("\n")
 	}
-	b.WriteString("\n👥 ")
+
+	b.WriteString("\nعدد المرافقين :| 👥 ")
 	b.WriteString(companionsText)
 
 	if s.DateText != "" {
-		b.WriteString("\n📅 ")
+		b.WriteString("\n| 📅 ")
 		b.WriteString(s.DateText)
 	}
 	if s.LocationName != "" {
-		b.WriteString("\n📍 ")
+		b.WriteString("\n| 📍 ")
 		b.WriteString(s.LocationName)
 	}
 
-	b.WriteString("\n\n🎫 الرجاء إظهار الباركود عند الدخول")
+	b.WriteString("\n\n| 🎫 الرجاء إظهار الباركود عند الدخول")
 
-	// واتساب الاستفسار من .env (مش إيميلات)
 	wa := strings.TrimSpace(os.Getenv("GRAD_INQUIRY_WHATSAPP"))
 	if wa == "" {
 		wa = strings.TrimSpace(os.Getenv("ADMIN_WHATSAPP"))
@@ -133,7 +132,6 @@ func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 		b.WriteString("\n\nللاستفسار: https://wa.me/")
 		b.WriteString(wa)
 	}
-
 	return b.String()
 }
 
@@ -148,11 +146,12 @@ func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	s := getGradSettings()
 	msg := buildGradInviteMessage(g, s)
 
-	// صورة الدعوة + النص ملصوق معاً (caption) — رسالة واحدة
 	imgBytes, err := generateGradInvitePNG(g, s)
 	if err != nil {
 		return fmt.Errorf("فشل توليد صورة الدعوة: %v", err)
 	}
+
+	// صورة + النص ملصوقين في رسالة واحدة
 	if err := SendWAImage(g.Phone, imgBytes, msg); err != nil {
 		return err
 	}
@@ -164,7 +163,6 @@ func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	})
 	return nil
 }
-
 // بث جماعي مع concurrency آمن
 func GradBroadcastHandler(c *gin.Context) {
 	if WAClient == nil || !WAClient.IsConnected() {

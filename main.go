@@ -1108,35 +1108,35 @@ func main() {
 	r := gin.Default()
 
 	// دالة مساعدة لتنسيق التاريخ داخل الـ HTML
-r.SetFuncMap(template.FuncMap{
-"formatDate": func(v interface{}) string {
-		loc, _ := time.LoadLocation("Asia/Kuwait")
-		switch t := v.(type) {
-		case time.Time:
-			if t.IsZero() {
+	tmpl := template.Must(
+	template.New("").Funcs(template.FuncMap{
+		"formatDate": func(v interface{}) string {
+			loc, _ := time.LoadLocation("Asia/Kuwait")
+			switch t := v.(type) {
+			case time.Time:
+				if t.IsZero() {
+					return "—"
+				}
+				if loc != nil {
+					return t.In(loc).Format("2006-01-02 15:04")
+				}
+				return t.Format("2006-01-02 15:04")
+			case *time.Time:
+				if t == nil || t.IsZero() {
+					return "—"
+				}
+				if loc != nil {
+					return t.In(loc).Format("2006-01-02 15:04")
+				}
+				return t.Format("2006-01-02 15:04")
+			default:
 				return "—"
 			}
-			if loc != nil {
-				return t.In(loc).Format("2006-01-02 15:04")
-			}
-			return t.Format("2006-01-02 15:04")
-		case *time.Time:
-			if t == nil || t.IsZero() {
-				return "—"
-			}
-			if loc != nil {
-				return t.In(loc).Format("2006-01-02 15:04")
-			}
-			return t.Format("2006-01-02 15:04")
-		default:
-			return "—"
-		
-		}
-	},
-})
-
-	r.LoadHTMLGlob("templates/*")
-	r.LoadHTMLGlob("templates/grad/*.html")
+		},
+	}).ParseGlob("templates/*.html"),
+)
+template.Must(tmpl.ParseGlob("templates/grad/*.html"))
+r.SetHTMLTemplate(tmpl)
 	r.Static("/public", "./public")
 
 	// =====================================

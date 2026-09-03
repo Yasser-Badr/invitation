@@ -86,24 +86,23 @@ func GradRenderInvitePage(c *gin.Context) {
 }
 
 // نص الرسالة الشخصية
-func buildGradInviteMessage(g *GradGuest, s GradSettings, inviteLink string) string {
+func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 	companions := "بدون مرافقين"
 	if g.Companions > 0 {
-		companions = fmt.Sprintf("%d مرافق", g.Companions)
+		companions = fmt.Sprintf("%d", g.Companions)
 	}
 
 	msg := fmt.Sprintf(
-		"يا هلا فيك يا *%s* 🎓\n\n"+
+		"يا مرحباً بك يا *%s* 🎓\n\n"+
 			"%s\n"+
 			"*%s*\n\n"+
-			"👥 %s\n\n"+
-			"🎫 باركود الحضور مرفق مع الرسالة\n"+
-			"أو من خلال الرابط:\n%s\n",
+				"👥 | عدد المرافقين: %s\n\n"+
+				"🎫 | الرجاء إظهار الباركود عند الدخول\n\n"+
+		
 		g.Name,
 		s.EventSubtitle,
 		s.MainLine,
 		companions,
-		inviteLink,
 	)
 
 	if s.DateText != "" {
@@ -117,7 +116,6 @@ func buildGradInviteMessage(g *GradGuest, s GradSettings, inviteLink string) str
 	}
 	return msg
 }
-
 // إرسال دعوة لخريج واحد (تصميم + نص + باركود)
 func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	if strings.TrimSpace(g.Phone) == "" {

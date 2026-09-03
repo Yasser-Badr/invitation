@@ -5,6 +5,8 @@ import (
 	"fmt"
 	//"image"
 	"image/png"
+	"os"
+    "strings"
 
 	"github.com/fogleman/gg"
 	"github.com/skip2/go-qrcode"

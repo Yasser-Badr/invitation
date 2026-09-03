@@ -96,15 +96,13 @@ func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 		"يا مرحباً بك يا *%s* 🎓\n\n"+
 			"%s\n"+
 			"*%s*\n\n"+
-				"👥 | عدد المرافقين: %s\n\n"+
-				"🎫 | الرجاء إظهار الباركود عند الدخول\n\n"+
-		
+			"👥 | عدد المرافقين: %s\n\n"+
+			"🎫 | الرجاء إظهار الباركود عند الدخول\n\n"+
 		g.Name,
 		s.EventSubtitle,
 		s.MainLine,
 		companions,
 	)
-
 	if s.DateText != "" {
 		msg += "\n📅 " + s.DateText
 	}
@@ -116,6 +114,7 @@ func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 	}
 	return msg
 }
+
 // إرسال دعوة لخريج واحد (تصميم + نص + باركود)
 func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	if strings.TrimSpace(g.Phone) == "" {
@@ -126,33 +125,22 @@ func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	}
 
 	s := getGradSettings()
-	//inviteLink := fmt.Sprintf("%s/grad/invite/%s", strings.TrimRight(baseURL, "/"), g.Token)
-	msg := buildGradInviteMessage(g, s)
 
-	// 1) صورة الخلفية/التصميم إن وجدت
-	if s.BackgroundURL != "" {
-		path := "." + s.BackgroundURL
-		if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
-			_ = SendWAImage(g.Phone, data, s.EventTitle+" — "+s.MainLine)
-			time.Sleep(600 * time.Millisecond)
-		}
+	// 1) صورة الدعوة الشخصية (تصميم + اسم + مرافقين + باركود)
+	imgBytes, err := generateGradInvitePNG(g, s)
+	if err != nil {
+		return fmt.Errorf("فشل توليد صورة الدعوة: %v", err)
 	}
-
-	// 2) نص الرسالة
-	if err := SendWAMessage(g.Phone, msg); err != nil {
+	caption := s.EventTitle + " — " + g.Name
+	if err := SendWAImage(g.Phone, imgBytes, caption); err != nil {
 		return err
 	}
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(700 * time.Millisecond)
 
-	// 3) الباركود الشخصي
-	if g.QRImageURL != "" {
-		path := "." + g.QRImageURL
-		if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
-			caption := fmt.Sprintf("باركود الحضور — %s\nأظهره عند الدخول 🎫", g.Name)
-			if err := SendWAImage(g.Phone, data, caption); err != nil {
-				return err
-			}
-		}
+	// 2) النص بعد الصورة (بدون لينك وبدون باركود منفصل)
+	msg := buildGradInviteMessage(g, s)
+	if err := SendWAMessage(g.Phone, msg); err != nil {
+		return err
 	}
 
 	now := kuwaitNow()

@@ -4,85 +4,109 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/color"
 	"image/png"
 
 	"github.com/fogleman/gg"
-	qrcode "github.com/skip2/go-qrcode"
+	"github.com/skip2/go-qrcode"
 )
 
-// GenerateCardImage تقوم بتوليد صورة الدعوة كاملاً لكل مدعو
-func GenerateCardImage(guestName string, companions int, qrContent string) ([]byte, error) {
-	// 1. أبعاد كارت الدعوة (مثلاً 600x1000)
-	const width = 600
-	const height = 1000
+// توليد بطاقة دعوة شخصية (تصميم + اسم + مرافقين + باركود)
+func generateGradInvitePNG(g *GradGuest, s GradSettings) ([]byte, error) {
+	const W, H = 600, 920
+	dc := gg.NewContext(W, H)
 
-	dc := gg.NewContext(width, height)
-
-	// 2. رسم الخلفية الكحلية (أو يمكنك تحميل صورة خلفية جاهزة بواسطة gg.LoadImage)
-	dc.SetColor(color.RGBA{R: 11, G: 26, B: 52, A: 255}) // خلفية كحلي داكن
+	// خلفية كحلي
+	dc.SetRGB(0.04, 0.12, 0.23) // #0a1f3a
 	dc.Clear()
 
-	// 3. كتابة العناوين والنصوص ثابتة
-	dc.SetColor(color.White)
-	
-	// تحميل خط يدعم العربية (مهم جداً وجود ملف خط عربى ttf مثل Cairo أو Amiri)
-	if err := dc.LoadFontFace("fonts/Cairo-Bold.ttf", 28); err != nil {
-		// في حال عدم وجود الخط، يفضل معالجة الخط لتفادي المشاكل
+	// لو في خلفية مرفوعة نستخدمها
+	if s.BackgroundURL != "" {
+		if img, err := gg.LoadImage("." + s.BackgroundURL); err == nil {
+			dc.DrawImage(img, 0, 0)
+		}
 	}
 
-	// كتابة النصوص المتروكة في المنتصف
-	dc.DrawStringAnchored("دعوة", width/2, 180, 0.5, 0.5)
-	
-	if err := dc.LoadFontFace("fonts/Cairo-Regular.ttf", 18); err == nil {
-		dc.DrawStringAnchored("لخريجي وخريجات جامعة جدة لعام 2026", width/2, 230, 0.5, 0.5)
+	// خط عربي
+	fontPath := "fonts/NotoNaskhArabic-Regular.ttf"
+	if err := dc.LoadFontFace(fontPath, 28); err != nil {
+		// fallback
+		_ = dc.LoadFontFace("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
 	}
 
-	if err := dc.LoadFontFace("fonts/Cairo-Bold.ttf", 22); err == nil {
-		dc.DrawStringAnchored("لحضور حفل التخرج", width/2, 280, 0.5, 0.5)
-	}
+	dc.SetRGB(1, 1, 1)
 
-	// 4. كتابة اسم المدعو وعدد المرافقين ديناميكياً
-	dc.SetColor(color.RGBA{R: 212, G: 225, B: 248, A: 255}) // لون أزرق فاتح/أبيض
-	if err := dc.LoadFontFace("fonts/Cairo-Bold.ttf", 26); err == nil {
-		dc.DrawStringAnchored(guestName, width/2, 380, 0.5, 0.5)
+	// عنوان
+	title := s.EventTitle
+	if title == "" {
+		title = "دعوة"
 	}
+	dc.LoadFontFace(fontPath, 36)
+	dc.DrawStringAnchored(title, W/2, 120, 0.5, 0.5)
 
-	if err := dc.LoadFontFace("fonts/Cairo-Regular.ttf", 16); err == nil {
-		compText := fmt.Sprintf("المرافقون: %d", companions)
-		dc.DrawStringAnchored(compText, width/2, 420, 0.5, 0.5)
+	// سطر فرعي
+	dc.LoadFontFace(fontPath, 20)
+	dc.SetRGB(0.75, 0.82, 0.90)
+	dc.DrawStringAnchored(s.EventSubtitle, W/2, 175, 0.5, 0.5)
+
+	// السطر الرئيسي
+	dc.LoadFontFace(fontPath, 26)
+	dc.SetRGB(1, 1, 1)
+	dc.DrawStringAnchored(s.MainLine, W/2, 230, 0.5, 0.5)
+
+	// الاسم
+	dc.LoadFontFace(fontPath, 30)
+	dc.SetRGB(0.55, 0.75, 1)
+	dc.DrawStringAnchored(g.Name, W/2, 300, 0.5, 0.5)
+
+	// المرافقين
+	comp := "بدون مرافقين"
+	if g.Companions > 0 {
+		comp = fmt.Sprintf("المرافقون: %d", g.Companions)
 	}
+	dc.LoadFontFace(fontPath, 20)
+	dc.SetRGB(0.7, 0.78, 0.85)
+	dc.DrawStringAnchored(comp, W/2, 345, 0.5, 0.5)
 
-	// 5. توليد الـ QR Code ودمجه داخل الصورة
-	qrPNG, err := qrcode.Encode(qrContent, qrcode.Medium, 220)
+	// الباركود
+	qrBytes, err := qrcode.Encode(
+		fmt.Sprintf("%s/grad/public-verify/%s?key=%s",
+			strings.TrimRight(getAppBaseURL(), "/"),
+			g.Token,
+			os.Getenv("GRAD_SCAN_KEY"),
+		),
+		qrcode.Medium,
+		280,
+	)
+	if err != nil {
+		return nil, err
+	}
+	qrImg, err := png.Decode(bytes.NewReader(qrBytes))
 	if err != nil {
 		return nil, err
 	}
 
-	qrImg, _, err := image.Decode(bytes.NewReader(qrPNG))
-	if err != nil {
-		return nil, err
-	}
-
-	// رسم مربع أبيض حول الباركود
-	dc.SetColor(color.White)
-	dc.DrawRoundedRectangle(width/2-120, 480, 240, 240, 15)
+	// إطار أبيض للباركود
+	boxX, boxY, boxS := 160, 400, 280
+	dc.SetRGB(1, 1, 1)
+	dc.DrawRoundedRectangle(float64(boxX-12), float64(boxY-12), float64(boxS+24), float64(boxS+24), 16)
 	dc.Fill()
+	dc.DrawImage(qrImg, boxX, boxY)
 
-	// رسم صورة الباركود في المنتصف
-	dc.DrawImage(qrImg, width/2-110, 490)
+	// جملة تحت الباركود
+	dc.LoadFontFace(fontPath, 18)
+	dc.SetRGB(0.65, 0.72, 0.80)
+	dc.DrawStringAnchored("أظهر هذا الباركود عند الدخول", W/2, 720, 0.5, 0.5)
 
-	// نص زير الباركود
-	dc.SetColor(color.RGBA{R: 200, G: 210, B: 225, A: 255})
-	if err := dc.LoadFontFace("fonts/Cairo-Regular.ttf", 14); err == nil {
-		dc.DrawStringAnchored("أظهر هذا الباركود عند الدخول", width/2, 750, 0.5, 0.5)
+	// التذييل
+	if s.FooterNote != "" {
+		dc.LoadFontFace(fontPath, 14)
+		dc.SetRGB(0.55, 0.62, 0.70)
+		dc.DrawStringAnchored(s.FooterNote, W/2, 860, 0.5, 0.5)
 	}
 
-	// 6. استخراج الصورة كـ Bytes (PNG)
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, dc.Image()); err != nil {
 		return nil, err
 	}
-
 	return buf.Bytes(), nil
 }

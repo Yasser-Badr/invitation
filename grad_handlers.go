@@ -87,35 +87,56 @@ func GradRenderInvitePage(c *gin.Context) {
 
 // نص الرسالة الشخصية
 func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
-	companions := "بدون مرافقين"
+	companionsText := "بدون مرافقين"
 	if g.Companions > 0 {
-		companions = fmt.Sprintf("%d", g.Companions)
+		companionsText = fmt.Sprintf("%d مرافق", g.Companions)
 	}
 
-	msg := fmt.Sprintf(
-		"يا مرحباً بك يا *%s* 🎓\n\n"+
-			"%s\n"+
-			"*%s*\n\n"+
-			"👥 | عدد المرافقين: %s\n\n"+
-			"🎫 | الرجاء إظهار الباركود عند الدخول\n\n"+
-		g.Name,
-		s.EventSubtitle,
-		s.MainLine,
-		companions,
-	)
+	// نبني النص بدون Sprintf على نصوص الإعدادات (عشان % ما يبوظش)
+	var b strings.Builder
+	b.WriteString("يا هلا فيك يا *")
+	b.WriteString(g.Name)
+	b.WriteString("* 🎓\n\n")
+
+	if s.MainLine != "" {
+		b.WriteString("*")
+		b.WriteString(s.MainLine)
+		b.WriteString("*\n")
+	}
+	if s.EventSubtitle != "" {
+		b.WriteString(s.EventSubtitle)
+		b.WriteString("\n")
+	}
+	b.WriteString("\n👥 ")
+	b.WriteString(companionsText)
+
 	if s.DateText != "" {
-		msg += "\n📅 " + s.DateText
+		b.WriteString("\n📅 ")
+		b.WriteString(s.DateText)
 	}
 	if s.LocationName != "" {
-		msg += "\n📍 " + s.LocationName
+		b.WriteString("\n📍 ")
+		b.WriteString(s.LocationName)
 	}
-	if s.FooterNote != "" {
-		msg += "\n\n" + s.FooterNote
+
+	b.WriteString("\n\n🎫 الرجاء إظهار الباركود عند الدخول")
+
+	// واتساب الاستفسار من .env (مش إيميلات)
+	wa := strings.TrimSpace(os.Getenv("GRAD_INQUIRY_WHATSAPP"))
+	if wa == "" {
+		wa = strings.TrimSpace(os.Getenv("ADMIN_WHATSAPP"))
 	}
-	return msg
+	if wa != "" {
+		wa = strings.TrimPrefix(wa, "+")
+		wa = strings.ReplaceAll(wa, " ", "")
+		wa = strings.ReplaceAll(wa, "-", "")
+		b.WriteString("\n\nللاستفسار: https://wa.me/")
+		b.WriteString(wa)
+	}
+
+	return b.String()
 }
 
-// إرسال دعوة لخريج واحد (تصميم + نص + باركود)
 func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	if strings.TrimSpace(g.Phone) == "" {
 		return fmt.Errorf("رقم فارغ")
@@ -125,21 +146,14 @@ func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	}
 
 	s := getGradSettings()
+	msg := buildGradInviteMessage(g, s)
 
-	// 1) صورة الدعوة الشخصية (تصميم + اسم + مرافقين + باركود)
+	// صورة الدعوة + النص ملصوق معاً (caption) — رسالة واحدة
 	imgBytes, err := generateGradInvitePNG(g, s)
 	if err != nil {
 		return fmt.Errorf("فشل توليد صورة الدعوة: %v", err)
 	}
-	caption := s.EventTitle + " — " + g.Name
-	if err := SendWAImage(g.Phone, imgBytes, caption); err != nil {
-		return err
-	}
-	time.Sleep(700 * time.Millisecond)
-
-	// 2) النص بعد الصورة (بدون لينك وبدون باركود منفصل)
-	msg := buildGradInviteMessage(g, s)
-	if err := SendWAMessage(g.Phone, msg); err != nil {
+	if err := SendWAImage(g.Phone, imgBytes, msg); err != nil {
 		return err
 	}
 
@@ -532,7 +546,7 @@ func GradRenderVerifyPage(c *gin.Context) {
 		c.HTML(http.StatusOK, "grad_verify.html", gin.H{"Error": "باركود غير مسجل", "Name": ""})
 		return
 	}
-	c.HTML(http.StatusOK, "grad/grad_verify.html", gin.H{
+	c.HTML(http.StatusOK, "grad_verify.html", gin.H{
 		"Error": "", "Name": g.Name, "Companions": g.Companions, "CheckedIn": g.CheckedIn,
 	})
 }

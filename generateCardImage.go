@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"image"
+	//"image"
 	"image/png"
 
 	"github.com/fogleman/gg"

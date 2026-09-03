@@ -126,7 +126,7 @@ func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	}
 
 	s := getGradSettings()
-	inviteLink := fmt.Sprintf("%s/grad/invite/%s", strings.TrimRight(baseURL, "/"), g.Token)
+	//inviteLink := fmt.Sprintf("%s/grad/invite/%s", strings.TrimRight(baseURL, "/"), g.Token)
 	msg := buildGradInviteMessage(g, s)
 
 	// 1) صورة الخلفية/التصميم إن وجدت

@@ -226,22 +226,14 @@
                 </div>
 
                 <!-- الباركود -->
-                <div class="qr-container">
-                    <img src="{{ .QRImageURL }}" crossorigin="anonymous" alt="QR Code" id="qrImg">
-                </div>
-                
-                <div class="qr-text">
-                    <p>أظهر هذا الكود عند الدخول</p>
-                </div>
-
-                <!-- الأزرار -->
+                                <!-- الأزرار -->
                 <div class="actions">
                     <a class="btn" href="{{ .Settings.MapsURL }}" target="_blank" rel="noopener">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                         <span>زيارة الموقع</span>
                     </a>
                     <button type="button" class="btn" onclick="saveTicketImage()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                        <span style="font-size: 18px;">📲</span>
                         <span id="saveBtnText">حفظ البطاقة كصورة</span>
                     </button>
                     <button type="button" class="btn" onclick="printTicket()">
@@ -249,6 +241,7 @@
                         <span>طباعة البطاقة</span>
                     </button>
                 </div>
+
             </div>
         </div>
     </div>

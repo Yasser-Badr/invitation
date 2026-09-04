@@ -37,7 +37,7 @@ func generateGradInvitePNG(g *GradGuest, bgPath string) ([]byte, error) {
 	}
 
 	// باركود أصغر — بدون إطار أبيض إضافي
-	const qrSize = 180 // كان 320 — صغّر أكثر لو حابب (160 / 140)
+	const qrSize = 200 // كان 320 — صغّر أكثر لو حابب (160 / 140)
 	base := strings.TrimRight(getAppBaseURL(), "/")
 	key := os.Getenv("GRAD_SCAN_KEY")
 	qrContent := fmt.Sprintf("%s/grad/public-verify/%s?key=%s", base, g.Token, key)

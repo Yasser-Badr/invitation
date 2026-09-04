@@ -802,9 +802,11 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 		wg          sync.WaitGroup
 	)
 
-	// حد أقصى 5 إرسالات متزامنة (آمن لـ whatsmeow)
-	const maxWorkers = 5
+	// آمن أكثر ضد rate-limit (حساب شخصي / whatsmeow)
+	const maxWorkers = 1
 	sem := make(chan struct{}, maxWorkers)
+
+	sentCount := 0
 
 	for _, guest := range guests {
 		if strings.TrimSpace(guest.Phone) == "" {
@@ -817,13 +819,11 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 		}
 
 		wg.Add(1)
-		sem <- struct{}{} // انتظر مكان فاضي
+		sem <- struct{}{}
 
 		go func(g Guest) {
 			defer wg.Done()
-			defer func() { <-sem }() // حرر المكان
-
-			// حماية من أي panic داخل الإرسال
+			defer func() { <-sem }()
 			defer func() {
 				if r := recover(); r != nil {
 					mu.Lock()
@@ -851,7 +851,7 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 						sendErr = SendWADocument(g.Phone, mediaData, mediaFileName, fullMessage)
 					}
 					if sendErr == nil {
-						time.Sleep(500 * time.Millisecond)
+						time.Sleep(2 * time.Second)
 						sendErr = SendWAButtons(g.Phone, "للرد على الدعوة اختر:", "أو اكتب: تأكيد / اعتذار")
 					}
 				} else {
@@ -890,10 +890,18 @@ func BroadcastWhatsAppHandler(c *gin.Context) {
 				})
 				fmt.Printf("✅ تم الإرسال لـ %s [whatsmeow]\n", g.Name)
 			}
+			sentCount++
+			n := sentCount
 			mu.Unlock()
 
-			// تأخير بسيط بين كل إرسال لتقليل الضغط
-			time.Sleep(400 * time.Millisecond)
+			// تأخير أساسي بين كل رسالة
+			time.Sleep(8 * time.Second)
+
+			// استراحة أطول كل 15 رسالة
+			if n > 0 && n%15 == 0 {
+				fmt.Printf("⏸ استراحة دقيقة بعد %d رسالة...\n", n)
+				time.Sleep(60 * time.Second)
+			}
 		}(guest)
 	}
 

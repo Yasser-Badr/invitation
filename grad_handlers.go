@@ -135,7 +135,7 @@ func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 	return b.String()
 }
 
-func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
+func sendGradInviteToGuest(g *GradGuest, baseURL string, bgPath string) error {
 	if strings.TrimSpace(g.Phone) == "" {
 		return fmt.Errorf("رقم فارغ")
 	}
@@ -146,12 +146,10 @@ func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	s := getGradSettings()
 	msg := buildGradInviteMessage(g, s)
 
-	imgBytes, err := generateGradInvitePNG(g, s)
+	imgBytes, err := generateGradInvitePNG(g, bgPath)
 	if err != nil {
 		return fmt.Errorf("فشل توليد صورة الدعوة: %v", err)
 	}
-
-	// صورة + النص ملصوقين في رسالة واحدة
 	if err := SendWAImage(g.Phone, imgBytes, msg); err != nil {
 		return err
 	}
@@ -163,6 +161,7 @@ func sendGradInviteToGuest(g *GradGuest, baseURL string) error {
 	})
 	return nil
 }
+
 // بث جماعي مع concurrency آمن
 func GradBroadcastHandler(c *gin.Context) {
 	if WAClient == nil || !WAClient.IsConnected() {
@@ -171,6 +170,16 @@ func GradBroadcastHandler(c *gin.Context) {
 	}
 
 	idsStr := c.PostForm("guest_ids")
+	// رفع خلفية البطاقة (اختياري) — بدل الإعدادات
+	bgPath := ""
+	if file, err := c.FormFile("card_background"); err == nil && file != nil {
+		_ = os.MkdirAll("./public/grad_uploads", 0o755)
+		tmp := fmt.Sprintf("./public/grad_uploads/broadcast_bg_%d%s", time.Now().UnixNano(), filepath.Ext(file.Filename))
+		if err := c.SaveUploadedFile(file, tmp); err == nil {
+			bgPath = tmp
+			//defer os.Remove(tmp) // تتشال بعد ما الإرسال يخلص
+		}
+	}
 	selectedOnly := c.PostForm("selected_only") == "1"
 
 	var guests []GradGuest
@@ -245,7 +254,7 @@ func GradBroadcastHandler(c *gin.Context) {
 				}
 			}()
 
-			err := sendGradInviteToGuest(&g, baseURL)
+			err := sendGradInviteToGuest(&g, baseURL, bgPath)
 			mu.Lock()
 			if err != nil {
 				failList = append(failList, resultItem{
@@ -262,7 +271,12 @@ func GradBroadcastHandler(c *gin.Context) {
 			time.Sleep(500 * time.Millisecond)
 		}(guest)
 	}
-	wg.Wait()
+
+	wg.Wait() // ← مهم جدًا
+
+	if bgPath != "" {
+		_ = os.Remove(bgPath)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":       fmt.Sprintf("تخرج: %d نجح، %d فشل", len(successList), len(failList)),

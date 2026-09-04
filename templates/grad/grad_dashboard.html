@@ -84,7 +84,11 @@
       <input type="file" id="excelIn" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this)">
       <a class="btn btn-teal" href="/grad/admin/api/export-excel">📊 تصدير</a>
       <a class="btn btn-primary" href="/grad/admin/settings">⚙️ الإعدادات</a>
-      <button class="btn btn-green" onclick="broadcastAll()">📤 إرسال الدعوات</button>
+<button class="btn btn-green" onclick="broadcastAll()">📤 إرسال الدعوات</button>
+<label class="btn btn-gray" style="cursor:pointer;margin:0;">
+  🖼️ خلفية البطاقة
+  <input type="file" id="cardBackground" accept="image/*" style="display:none">
+</label>
       {{ end }}
       {{ if or (eq .Role "manager") (eq .Role "scanner") }}
       <a class="btn btn-gray" href="/grad/scan" target="_blank">📷 مسح الباركود</a>
@@ -237,12 +241,19 @@ function importExcel(input) {
     .then(function(d){
       alert((d.message || '') + '\nنجاح: ' + (d.success_count||0) + ' | فشل: ' + (d.fail_count||0));
       location.reload();
-    });
+    })
+    .catch(function(){ alert('خطأ اتصال'); });
   input.value = '';
 }
+
 function broadcastAll() {
   if (!confirm('إرسال الدعوات لمن لم تُرسل له بعد عبر whatsmeow؟')) return;
-  fetch('/grad/admin/api/broadcast', { method: 'POST', body: new FormData() })
+  var fd = new FormData();
+  var bg = document.getElementById('cardBackground');
+  if (bg && bg.files && bg.files[0]) {
+    fd.append('card_background', bg.files[0]);
+  }
+  fetch('/grad/admin/api/broadcast', { method: 'POST', body: fd })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d.error) { alert(d.error); return; }

@@ -10,183 +10,245 @@
         :root {
             --primary: {{ .Settings.PrimaryColor }};
             --secondary: {{ .Settings.SecondaryColor }};
+            --border-color: #c4a78b;
+            --text-dark: #333;
+            --text-muted: #777;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Tajawal', sans-serif;
-            background: #e9e4d9;
+            background: #d8cec0;
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
-            padding: 16px;
+            align-items: center;
+            padding: 20px;
+        }
+        .ticket-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: auto;
+            padding-top: 25px; /* لتوفير مساحة لظهور التيكت العلوي عند حفظ الصورة */
+        }
+        .id-tag {
+            position: absolute;
+            top: 5px;
+            left: 20px;
+            width: 70px;
+            z-index: 10;
+        }
+        .id-tag img {
+            width: 100%;
+            display: block;
+        }
+        .id-text {
+            position: absolute;
+            top: 56%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            font-family: 'Tajawal', sans-serif;
         }
         .ticket {
-            background: #fff;
+            background: #fbf9f6; /* لون خلفية الورق المائل للكريمي */
             width: 100%;
-            max-width: 420px;
-            border-radius: 18px;
-            box-shadow: 0 10px 32px rgba(0,0,0,0.12);
-            padding: 26px 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            position: relative;
+            padding: 35px 25px 25px;
             text-align: center;
+            overflow: hidden;
+            z-index: 1;
+        }
+        /* صور الشجر الزخرفية */
+        .leaf-top {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 170px;
+            z-index: -1;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        .leaf-bottom {
+            position: absolute;
+            bottom: 60px;
+            left: -30px;
+            width: 140px;
+            z-index: -1;
+            opacity: 0.85;
+            pointer-events: none;
+        }
+        .content-layer {
+            position: relative;
+            z-index: 2;
         }
         .label {
-            color: #888;
-            font-size: 13px;
-            margin-bottom: 8px;
+            color: #777;
+            font-size: 14px;
+            margin-bottom: 5px;
+            font-weight: 500;
         }
         .event-title {
             font-family: 'Amiri', serif;
-            font-size: 26px;
+            font-size: 32px;
             font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 4px;
-            line-height: 1.3;
+            color: #b38b6d;
+            margin-bottom: 2px;
         }
         .event-sub {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 12px;
-        }
-        .ticket-id {
-            display: inline-block;
-            background: #f3f3f3;
-            padding: 5px 14px;
-            border-radius: 20px;
-            font-size: 14px;
-            color: #333;
-            margin-bottom: 16px;
+            font-size: 15px;
+            color: #888;
+            margin-bottom: 30px;
         }
         .info {
-            text-align: right;
-            font-size: 15px;
-            line-height: 2;
-            color: #333;
-            background: #fafafa;
-            border-radius: 12px;
-            padding: 14px 16px;
-            margin-bottom: 14px;
-        }
-.qr {
-            text-align: center;
-            margin: 8px 0 4px;
-        }
-        .qr img {
-            display: block;
-            width: 190px;
-            height: 190px;
-            object-fit: contain;
-            margin: 0 auto 12px;
-        }
-        .badge {
-            display: block;
-            width: fit-content;
-            margin: 0 auto 8px;
-            background: #f1c40f;
-            color: #333;
-            font-size: 12px;
-            font-weight: 700;
-            padding: 6px 14px;
-            border-radius: 20px;
-        }
-        .qr p {
-            color: #888;
-            font-size: 13px;
-            margin: 0;
-        }
-        .actions {
-            margin-top: 18px;
             display: flex;
             flex-direction: column;
+            gap: 12px;
+            margin-bottom: 25px;
+            padding: 0 10px;
+        }
+        .info-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
             gap: 10px;
+            font-size: 15px;
+            color: #333;
+            font-weight: 500;
+        }
+        .info-row svg {
+            stroke: #777;
+            min-width: 20px;
+        }
+        .qr-container {
+            background: #fff;
+            padding: 12px;
+            border-radius: 14px;
+            box-shadow: 0 2px 12px rgba(180, 150, 120, 0.15);
+            border: 1px solid rgba(196, 167, 139, 0.3);
+            width: max-content;
+            margin: 0 auto 15px;
+        }
+        .qr-container img {
+            display: block;
+            width: 170px;
+            height: 170px;
+            object-fit: contain;
+        }
+        .qr-text p {
+            color: #444;
+            font-size: 14px;
+            margin: 6px 0;
+            font-weight: 500;
+        }
+        .actions {
+            margin-top: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
         .btn {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             width: 100%;
             padding: 14px;
-            border-radius: 12px;
+            border-radius: 10px;
             font-size: 15px;
             font-weight: 700;
             font-family: 'Tajawal', sans-serif;
             text-decoration: none;
-            text-align: center;
-            border: none;
+            background: transparent;
+            color: #333;
+            border: 1.5px solid var(--border-color);
             cursor: pointer;
+            transition: all 0.2s;
         }
-        .btn-location {
-            background: #fff;
-            color: var(--primary);
-            border: 2px solid var(--primary);
+        .btn svg {
+            stroke: #a47d5e;
+            width: 18px;
+            height: 18px;
         }
-        .btn-save {
-            background: #1b4332;
-            color: #fff;
-        }
-        .btn-print {
-            background: #34495e;
-            color: #fff;
-        }
-        .hint {
-            font-size: 11px;
-            color: #999;
-            margin-top: 8px;
-            line-height: 1.5;
+        .btn:hover {
+            background: rgba(196, 167, 139, 0.05);
         }
 
         @media print {
-            @page {
-                size: 110mm 150mm;
-                margin: 6mm;
-            }
-            html, body {
-                background: #fff !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-            .actions, .hint { display: none !important; }
-            .ticket {
-                max-width: 100% !important;
-                box-shadow: none !important;
-                border: 1px solid #ccc;
-                border-radius: 0;
-            }
-            .qr img { width: 160px; height: 160px; }
+            body { background: none; }
+            .ticket-wrapper { margin: 0; box-shadow: none; max-width: 100%; padding-top: 0; }
+            .ticket { box-shadow: none; border: 1px solid #ccc; }
+            .actions, .id-tag { display: none !important; }
         }
     </style>
 </head>
 <body>
-    <div class="ticket" id="ticketCard">
-        <div class="label">بطاقة دخول</div>
-        <div class="event-title">{{ .Settings.EventTitle }}</div>
-        <div class="event-sub">
-            {{ .Settings.Person1 }}{{ if .Settings.Person2 }} و {{ .Settings.Person2 }}{{ end }}
-        </div>
-        <div class="ticket-id">رقم البطاقة #{{ .ID }}</div>
-
-        <div class="info">
-            <div><strong>الاسم:</strong> {{ .Name }}</div>
-            <div><strong>الجوال:</strong> {{ .Phone }}</div>
-            <div><strong>عدد المرافقين:</strong> {{ .Companions }}</div>
+    <div class="ticket-wrapper" id="ticketCard">
+        
+        <!-- تيكت الرقم -->
+        <div class="id-tag">
+            <img crossorigin="anonymous" src="https://raw.githubusercontent.com/Yasser-Badr/images/main/vecteezy_blank-brown-paper-tag-with-string-cut-out_58282078.png" alt="Tag">
+            <div class="id-text">#{{ .ID }}</div>
         </div>
 
-       <div class="qr">
-            <img src="{{ .QRImageURL }}" alt="QR Code" id="qrImg">
-            <div class="badge">أظهر هذا الكود عند الدخول</div>
-            <p>يمكن حفظ البطاقة على الجوال</p>
-        </div>
+        <div class="ticket">
+            <!-- الشجر الزخرفي بالأطراف -->
+            <img crossorigin="anonymous" src="https://raw.githubusercontent.com/Yasser-Badr/images/main/reverse-2-AoPZwDMZKvfGB0eQ.png" class="leaf-top" alt="">
+            <img crossorigin="anonymous" src="https://raw.githubusercontent.com/Yasser-Badr/images/main/canva-aquarell-eukalyptusblatt-illustration-MAGdAoz6c5A.png" class="leaf-bottom" alt="">
 
-        <div class="actions">
-            <a class="btn btn-location" href="{{ .Settings.MapsURL }}" target="_blank" rel="noopener">
-                📍 زيارة الموقع
-            </a>
-            <button type="button" class="btn btn-save" onclick="saveTicketImage()">
-                📲 حفظ البطاقة كصورة
-            </button>
-            <button type="button" class="btn btn-print" onclick="printTicket()">
-                🖨️ طباعة البطاقة
-            </button>
+            <div class="content-layer">
+                <div class="label">بطاقة دخول</div>
+                <div class="event-title">{{ .Settings.EventTitle }}</div>
+                <div class="event-sub">
+                    {{ .Settings.Person1 }}{{ if .Settings.Person2 }} و {{ .Settings.Person2 }}{{ end }}
+                </div>
+
+                <!-- بيانات الضيف -->
+                <div class="info">
+                    <div class="info-row">
+                        <span>اسم الضيف: {{ .Name }}</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                    <div class="info-row">
+                        <span>رقم الجوال: <span dir="ltr">{{ .Phone }}</span></span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                    </div>
+                    <div class="info-row">
+                        <span>عدد المرافقين: {{ .Companions }}</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    </div>
+                </div>
+
+                <!-- الباركود -->
+                <div class="qr-container">
+                    <img src="{{ .QRImageURL }}" crossorigin="anonymous" alt="QR Code" id="qrImg">
+                </div>
+                
+                <div class="qr-text">
+                    <p>أظهر هذا الكود عند الدخول</p>
+                    <p>احفظ هذه البطاقة على الجوال</p>
+                </div>
+
+                <!-- الأزرار -->
+                <div class="actions">
+                    <a class="btn" href="{{ .Settings.MapsURL }}" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        <span>زيارة الموقع</span>
+                    </a>
+                    <button type="button" class="btn" onclick="saveTicketImage()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                        <span id="saveBtnText">حفظ البطاقة كصورة</span>
+                    </button>
+                    <button type="button" class="btn" onclick="printTicket()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        <span>طباعة البطاقة</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -200,53 +262,49 @@ function printTicket() {
 }
 
 function saveTicketImage() {
-    const btn = document.querySelector('.btn-save');
-    const oldText = btn.innerText;
-    btn.innerText = "جاري الحفظ...";
-    btn.disabled = true;
+    const btnText = document.getElementById('saveBtnText');
+    const oldText = btnText.innerText;
+    btnText.innerText = "جاري الحفظ...";
+    const btns = document.querySelectorAll('.btn');
+    btns.forEach(b => b.style.pointerEvents = 'none'); // تعطيل الأزرار مؤقتاً
 
     const card = document.getElementById('ticketCard');
     const actions = card.querySelector('.actions');
-    const hint = card.querySelector('.hint');
 
-    // اخفي الأزرار مؤقتاً قبل التصوير
+    // اخفاء الأزرار قبل التقاط الصورة
     actions.style.display = 'none';
-    if (hint) hint.style.display = 'none';
 
     const qr = document.getElementById('qrImg');
     const doCapture = () => {
         html2canvas(card, {
-            backgroundColor: '#ffffff',
+            backgroundColor: null, // الحفاظ على شفافية الحواف حول الكارت
             scale: 2,
             useCORS: true,
             allowTaint: true
         }).then(canvas => {
             actions.style.display = 'flex';
-            if (hint) hint.style.display = 'block';
 
             const link = document.createElement('a');
             link.download = 'ticket-{{ .ID }}.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
 
-            // بعض المتصفحات على الموبايل تحتاج فتح في تاب جديد
             if (/iPhone|iPad|Android/i.test(navigator.userAgent)) {
                 const data = canvas.toDataURL('image/png');
                 const w = window.open('');
                 if (w) {
                     w.document.write('<img src="' + data + '" style="width:100%">');
-                    w.document.write('<p style="text-align:center;font-family:sans-serif">اضغط مطولاً على الصورة واختر حفظ</p>');
+                    w.document.write('<p style="text-align:center;font-family:sans-serif;margin-top:20px;">اضغط مطولاً على الصورة واختر حفظ</p>');
                 }
             }
 
-            btn.innerText = oldText;
-            btn.disabled = false;
+            btnText.innerText = oldText;
+            btns.forEach(b => b.style.pointerEvents = 'auto');
         }).catch(err => {
             actions.style.display = 'flex';
-            if (hint) hint.style.display = 'block';
-            btn.innerText = oldText;
-            btn.disabled = false;
-            alert("تعذر حفظ الصورة. جرّب زر الطباعة أو لقطة شاشة.");
+            btnText.innerText = oldText;
+            btns.forEach(b => b.style.pointerEvents = 'auto');
+            alert("تعذر حفظ الصورة. جرّب زر الطباعة أو أخذ لقطة شاشة.");
             console.error(err);
         });
     };

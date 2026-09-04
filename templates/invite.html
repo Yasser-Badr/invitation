@@ -9,13 +9,19 @@
         :root {
             --olive-color: {{ .Settings.PrimaryColor }};
             --brown-color: {{ .Settings.SecondaryColor }};
-            --bg-color: #fcfbf8;
+            --bg-color: #fbf9f6;
+            --border-soft: rgba(196, 167, 139, 0.4);
         }
         
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body { 
             font-family: 'Tajawal', sans-serif; 
-            background-color: #e9e8e3; 
-            margin: 0; 
+            background-color: #d8cec0; /* لون خلفية ناعم متناسق مع التيكت */
             padding: 20px; 
             display: flex; 
             justify-content: center; 
@@ -25,43 +31,53 @@
         
         .card { 
             background: var(--bg-color); 
-            background-image: radial-gradient(circle at top right, rgba(232,187,163,0.15) 0%, transparent 40%),
-                              radial-gradient(circle at bottom left, rgba(107,112,69,0.1) 0%, transparent 40%);
-            padding: 40px 20px; 
-            border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
-            max-width: 420px; 
+            background-image: radial-gradient(circle at top right, rgba(232,187,163,0.08) 0%, transparent 50%),
+                              radial-gradient(circle at bottom left, rgba(107,112,69,0.05) 0%, transparent 50%);
+            padding: 50px 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+            max-width: 450px; 
             width: 100%; 
             text-align: center; 
             position: relative; 
             overflow: hidden; 
+            border: 1px solid var(--border-soft);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .card.has-bg {
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
+            border: none;
         }
 
         .logo-img {
-            max-width: 110px;
-            margin-bottom: 15px;
-            border-radius: 8px;
+            max-width: 120px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
 
         .title-text {
             font-family: 'Amiri', serif;
-            font-size: 52px;
+            font-size: 42px;
             color: var(--olive-color);
             margin: 0;
-            font-weight: bold;
+            font-weight: 700;
+            line-height: 1.2;
         }
 
         .subtitle {
-            color: var(--brown-color);
-            font-size: 17px;
-            font-weight: 700;
-            margin: 15px 0 25px;
+            color: #666;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 15px 0 30px;
             line-height: 1.8;
             white-space: pre-line;
         }
@@ -70,26 +86,29 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 20px;
-            font-family: 'Tajawal', sans-serif;
-            font-size: 24px;
-            font-weight: bold;
+            gap: 15px;
+            font-family: 'Amiri', serif;
+            font-size: 32px;
+            font-weight: 700;
             color: var(--brown-color);
-            margin: 20px 0;
+            margin: 25px 0;
+            padding: 15px 0;
+            border-top: 1px solid var(--border-soft);
+            border-bottom: 1px solid var(--border-soft);
         }
 
         .names .ornament {
             color: var(--olive-color);
-            font-size: 28px;
-            font-family: 'Amiri', serif;
+            font-size: 26px;
+            font-weight: 400;
         }
 
         .details-grid {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin: 30px 0;
-            padding: 0 10px;
+            align-items: stretch;
+            margin: 35px 0;
+            gap: 15px;
         }
 
         .details-grid > div, .details-grid > a {
@@ -97,106 +116,151 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            color: var(--brown-color);
-            font-weight: bold;
+            justify-content: center;
+            color: #444;
+            font-weight: 500;
             font-size: 15px;
             line-height: 1.6;
             text-decoration: none;
+            padding: 15px 10px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 15px;
+            border: 1px solid rgba(0,0,0,0.03);
+            transition: all 0.3s ease;
         }
 
-        .location-link {
-            transition: transform 0.3s ease;
-            cursor: pointer;
+        .location-link:hover, .details-grid > a:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            background: #fff;
+        }
+
+        .divider {
+            display: none; /* تم إخفاء الفاصل واستبداله بالخلفيات المنفصلة للأقسام */
         }
         
-        .location-link:hover {
-            transform: scale(1.06);
-        }
-
-.divider {
-    font-size: 28px;
-    color: var(--brown-color);
-    opacity: 0.5;
-    font-weight: 300;
-    padding: 0 8px;
-    align-self: center;
-}
         .icon {
-            width: 28px;
-            height: 28px;
-            margin-bottom: 10px;
+            width: 32px;
+            height: 32px;
+            margin-bottom: 12px;
             fill: var(--olive-color);
         }
 
         .custom-icon {
-            width: 32px;
-            height: 32px;
-            margin-bottom: 10px;
+            width: 36px;
+            height: 36px;
+            margin-bottom: 12px;
             object-fit: contain;
         }
 
         .footer-quote {
             font-family: 'Amiri', serif;
-            font-size: 22px;
+            font-size: 24px;
             color: var(--olive-color);
-            margin: 25px 0;
+            margin: 30px 0;
+            font-style: italic;
         }
 
         .guest-info-box { 
-            background-color: rgba(255, 255, 255, 0.75); 
-            padding: 15px; 
-            border-radius: 12px; 
-            border: 1px dashed var(--olive-color);
-            margin-bottom: 25px; 
-            color: var(--olive-color);
-            font-weight: bold;
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 16px; 
+            border: 1px solid var(--border-soft);
+            box-shadow: 0 4px 20px rgba(196, 167, 139, 0.15);
+            margin-bottom: 30px; 
+            color: #333;
             font-size: 16px;
             line-height: 1.8;
+            position: relative;
+        }
+
+        .guest-info-box strong {
+            color: var(--brown-color);
+            font-size: 18px;
         }
 
         .btn-group { 
             display: flex; 
-            gap: 12px; 
+            gap: 15px; 
             justify-content: center; 
+            flex-wrap: wrap;
         }
 
         .btn { 
             flex: 1;
-            padding: 13px; 
+            min-width: 140px;
+            padding: 14px 20px; 
             border: 2px solid var(--olive-color); 
-            border-radius: 10px; 
-            font-size: 15px; 
+            border-radius: 30px; 
+            font-size: 16px; 
             cursor: pointer; 
-            background: white; 
+            background: #fff; 
             color: var(--olive-color); 
-            font-weight: bold; 
+            font-weight: 700; 
             font-family: 'Tajawal', sans-serif;
-            transition: 0.3s; 
+            transition: all 0.3s ease; 
         }
 
         .btn:hover { 
             background-color: var(--olive-color); 
-            color: white; 
+            color: #fff; 
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         .btn-decline {
-            border-color: var(--brown-color);
-            color: var(--brown-color);
+            border-color: #a89f91;
+            color: #7a7062;
         }
 
         .btn-decline:hover {
-            background-color: var(--brown-color);
-            color: white;
+            background-color: #a89f91;
+            color: #fff;
         }
 
         .date-text {
             white-space: pre-line;
+            font-weight: 700;
+            color: var(--brown-color);
+        }
+
+        .closed-box-container {
+            background: #fff3cd;
+            color: #856404;
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #ffeeba;
+            text-align: center;
+            margin: 20px 0;
+            width: 100%;
+        }
+
+        .btn-contact {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #25D366;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        
+        .btn-contact:hover {
+            background: #128C7E;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 400px) {
+            .details-grid { flex-direction: column; }
+            .btn-group { flex-direction: column; }
         }
     </style>
 </head>
 <body>
     <div class="card {{ if .Settings.BackgroundURL }}has-bg{{ end }}"
-         {{ if .Settings.BackgroundURL }}style="background-image: linear-gradient(rgba(252,251,248,0.85), rgba(252,251,248,0.9)), url('{{ .Settings.BackgroundURL }}');"{{ end }}>
+         {{ if .Settings.BackgroundURL }}style="background-image: linear-gradient(rgba(252,251,248,0.9), rgba(252,251,248,0.95)), url('{{ .Settings.BackgroundURL }}');"{{ end }}>
         
         {{ if .Settings.LogoURL }}
             <img src="{{ .Settings.LogoURL }}" class="logo-img" alt="Logo">
@@ -215,31 +279,28 @@
             {{ if .Settings.Person2 }}<div>{{ .Settings.Person2 }}</div>{{ end }}
         </div>
         {{ end }}
+        
         <div class="details-grid">
-            <div class="location-block" style="flex:1; display:flex; flex-direction:column; align-items:center;">
-                {{ if .LocationQRURL }}
-                    <a href="{{ .Settings.MapsURL }}" target="_blank" title="افتح الموقع" style="text-decoration:none; color:inherit;">
-                        <img src="{{ .LocationQRURL }}" alt="باركود الموقع"
-                             style="width:120px;height:120px;border-radius:10px;border:1px solid #e8e4dc;background:#fff;padding:4px;">
-                        <div style="margin-top:8px; font-weight:700;">{{ .Settings.LocationName }}</div>
-                        {{ if .Settings.LocationAddress }}
-                        <div style="font-size:13px; opacity:0.85;">{{ .Settings.LocationAddress }}</div>
-                        {{ end }}
-                    </a>
-                {{ else }}
-                    <a href="{{ .Settings.MapsURL }}" target="_blank" class="location-link" title="افتح الموقع">
-                        {{ if .Settings.IconLocationURL }}
-                            <img src="{{ .Settings.IconLocationURL }}" class="custom-icon" alt="موقع">
-                        {{ else }}
-                            <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                        {{ end }}
-                        <span>{{ .Settings.LocationName }}</span>
-                        <span>{{ .Settings.LocationAddress }}</span>
-                    </a>
-                {{ end }}
-            </div>
-            
-            <div class="divider">|</div>
+            {{ if .LocationQRURL }}
+                <a href="{{ .Settings.MapsURL }}" target="_blank" title="افتح الموقع">
+                    <img src="{{ .LocationQRURL }}" alt="باركود الموقع"
+                         style="width:100px;height:100px;border-radius:10px;background:#fff;padding:4px;margin-bottom:10px;">
+                    <div style="font-weight:700; color: var(--brown-color);">{{ .Settings.LocationName }}</div>
+                    {{ if .Settings.LocationAddress }}
+                    <div style="font-size:13px; opacity:0.8; margin-top:5px;">{{ .Settings.LocationAddress }}</div>
+                    {{ end }}
+                </a>
+            {{ else }}
+                <a href="{{ .Settings.MapsURL }}" target="_blank" class="location-link" title="افتح الموقع">
+                    {{ if .Settings.IconLocationURL }}
+                        <img src="{{ .Settings.IconLocationURL }}" class="custom-icon" alt="موقع">
+                    {{ else }}
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    {{ end }}
+                    <span style="font-weight:700; color: var(--brown-color); margin-bottom:4px;">{{ .Settings.LocationName }}</span>
+                    <span style="font-size:13px; opacity:0.8;">{{ .Settings.LocationAddress }}</span>
+                </a>
+            {{ end }}
             
             <div>
                 {{ if .Settings.IconDateURL }}
@@ -250,42 +311,37 @@
                 <span class="date-text">{{ .Settings.DateText }}</span>
             </div>
         </div>
+
         <div class="footer-quote">
             {{ .Settings.FooterQuote }}
         </div>
 
         <div class="guest-info-box">
             {{ if eq .Gender "female" }}
-                حياج الله يا : {{ .Name }}
+                حياج الله يا : <strong>{{ .Name }}</strong>
             {{ else }}
-                حياك الله يا : {{ .Name }}
+                حياك الله يا : <strong>{{ .Name }}</strong>
             {{ end }}
             <br>
-            عدد المرافقين : {{ .Companions }}
+            <span style="display:inline-block; margin-top:8px;">عدد المرافقين : <strong>{{ .Companions }}</strong></span>
         </div>
+
         <div class="btn-group">
             {{ if .RSVPClosed }}
-  <div style="background:#f8d7da;color:#721c24;padding:16px;border-radius:10px;text-align:center;margin:16px 0;">
-    <strong>انتهت فترة التأكيد والاعتذار</strong>
-    <p style="margin:8px 0 0;">{{ .ClosedMsg }}</p>
-    {{if .RSVPClosed}}
-<div class="closed-box">
-    <p>{{.ClosedMsg}}</p>
-    
-    {{if .AdminWhatsApp}}
-    <a href="{{.AdminWhatsApp}}" target="_blank" class="btn-contact">
-        تواصل مع الإدارة 💬
-    </a>
-    {{end}}
-</div>
-{{end}}
-  </div>
-{{ else }}
-  <!-- أزرار تأكيد / اعتذار الحالية -->
-
-            <button class="btn" onclick="sendRSVP('confirmed')">تأكيد الحضور</button>
-            <button class="btn btn-decline" onclick="sendRSVP('declined')">أعتذر عن الحضور</button>
-{{ end }}
+                <div class="closed-box-container">
+                    <strong style="font-size: 18px; display: block; margin-bottom: 8px;">انتهت فترة التأكيد والاعتذار</strong>
+                    <p style="margin:0 0 10px; font-size: 15px;">{{ .ClosedMsg }}</p>
+                    
+                    {{if .AdminWhatsApp}}
+                    <a href="{{.AdminWhatsApp}}" target="_blank" class="btn-contact">
+                        تواصل مع الإدارة 💬
+                    </a>
+                    {{end}}
+                </div>
+            {{ else }}
+                <button class="btn" onclick="sendRSVP('confirmed')">تأكيد الحضور ✓</button>
+                <button class="btn btn-decline" onclick="sendRSVP('declined')">أعتذر عن الحضور ✕</button>
+            {{ end }}
         </div>
 
     </div>
@@ -293,6 +349,13 @@
 <script>
     const guestToken = "{{ .Token }}";
     function sendRSVP(status) {
+        // إضافة تأثير التحميل على الأزرار
+        const btns = document.querySelectorAll('.btn');
+        btns.forEach(btn => {
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.7';
+        });
+
         fetch('/api/rsvp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -304,14 +367,22 @@
                 window.location.href = "/ticket/" + guestToken;
             } else {
                 document.querySelector('.card').innerHTML = `
-                    <div style="padding: 40px 20px;">
-                        <h2 style="color: var(--brown-color); margin-bottom: 20px; font-family: 'Amiri', serif; font-size: 28px;">تم تسجيل اعتذارك 🌸</h2>
-                        <p style="font-size: 17px; color: var(--olive-color); line-height: 1.8; font-weight: bold;">
-                            مقدرين ظروفك، ونتمنى أن تشاركنا في مناسبات قادمة بإذن الله.<br>شكراً لك.
+                    <div style="padding: 60px 20px; animation: fadeIn 0.5s ease-out;">
+                        <svg style="width: 60px; height: 60px; fill: #a89f91; margin-bottom: 20px;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                        <h2 style="color: var(--brown-color); margin-bottom: 20px; font-family: 'Amiri', serif; font-size: 32px;">تم تسجيل اعتذارك 🌸</h2>
+                        <p style="font-size: 18px; color: #555; line-height: 1.8; font-weight: 500;">
+                            مقدرين ظروفك،<br>ونتمنى أن تشاركنا في مناسبات قادمة بإذن الله.<br>شكراً لك.
                         </p>
                     </div>
                 `;
             }
+        }).catch(err => {
+            // إعادة تفعيل الأزرار في حالة الخطأ
+            btns.forEach(btn => {
+                btn.style.pointerEvents = 'auto';
+                btn.style.opacity = '1';
+            });
+            alert("حدث خطأ أثناء إرسال الرد، يرجى المحاولة مرة أخرى.");
         });
     }
 </script>

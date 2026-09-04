@@ -11,8 +11,6 @@
             --primary: {{ .Settings.PrimaryColor }};
             --secondary: {{ .Settings.SecondaryColor }};
             --border-color: #c4a78b;
-            --text-dark: #333;
-            --text-muted: #777;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -29,13 +27,13 @@
             width: 100%;
             max-width: 400px;
             margin: auto;
-            padding-top: 25px; /* لتوفير مساحة لظهور التيكت العلوي عند حفظ الصورة */
+            padding-top: 30px; 
         }
         .id-tag {
             position: absolute;
             top: 5px;
             left: 20px;
-            width: 70px;
+            width: 85px; /* تم تكبير التيكت */
             z-index: 10;
         }
         .id-tag img {
@@ -44,26 +42,26 @@
         }
         .id-text {
             position: absolute;
-            top: 56%;
+            top: 60%; /* تم ضبط المحاذاة الرأسية بعيداً عن خيط التيكت */
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 16px;
+            font-size: 20px; /* تم تكبير الخط */
             font-weight: 700;
-            color: #333;
+            color: #1a1a1a;
             font-family: 'Tajawal', sans-serif;
+            letter-spacing: 1px;
         }
         .ticket {
-            background: #fbf9f6; /* لون خلفية الورق المائل للكريمي */
+            background: #fbf9f6;
             width: 100%;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             position: relative;
-            padding: 35px 25px 25px;
+            padding: 40px 25px 25px;
             text-align: center;
             overflow: hidden;
             z-index: 1;
         }
-        /* صور الشجر الزخرفية */
         .leaf-top {
             position: absolute;
             top: -10px;
@@ -88,41 +86,45 @@
         }
         .label {
             color: #777;
-            font-size: 14px;
+            font-size: 15px;
             margin-bottom: 5px;
             font-weight: 500;
         }
         .event-title {
             font-family: 'Amiri', serif;
-            font-size: 32px;
+            font-size: 34px;
             font-weight: 700;
             color: #b38b6d;
-            margin-bottom: 2px;
+            margin-bottom: 5px;
         }
         .event-sub {
-            font-size: 15px;
+            font-size: 16px;
             color: #888;
-            margin-bottom: 30px;
+            margin-bottom: 35px;
         }
         .info {
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            margin-bottom: 25px;
-            padding: 0 10px;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 0 15px;
         }
         .info-row {
             display: flex;
             align-items: center;
-            justify-content: flex-end;
-            gap: 10px;
-            font-size: 15px;
+            justify-content: flex-start; /* تم ضبط المحاذاة لتبدأ من اليمين */
+            gap: 12px;
+            font-size: 16px;
             color: #333;
-            font-weight: 500;
+        }
+        .info-row strong {
+            font-weight: 700;
+            color: #1a1a1a;
         }
         .info-row svg {
             stroke: #777;
-            min-width: 20px;
+            min-width: 22px;
+            height: 22px;
         }
         .qr-container {
             background: #fff;
@@ -140,13 +142,13 @@
             object-fit: contain;
         }
         .qr-text p {
-            color: #444;
+            color: #555;
             font-size: 14px;
             margin: 6px 0;
             font-weight: 500;
         }
         .actions {
-            margin-top: 25px;
+            margin-top: 30px;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -201,25 +203,25 @@
             <img crossorigin="anonymous" src="https://raw.githubusercontent.com/Yasser-Badr/images/main/canva-aquarell-eukalyptusblatt-illustration-MAGdAoz6c5A.png" class="leaf-bottom" alt="">
 
             <div class="content-layer">
-                <div class="label">بطاقة دخول</div>
+                <div class="label">بطاقة دخول خاصة</div>
                 <div class="event-title">{{ .Settings.EventTitle }}</div>
                 <div class="event-sub">
                     {{ .Settings.Person1 }}{{ if .Settings.Person2 }} و {{ .Settings.Person2 }}{{ end }}
                 </div>
 
-                <!-- بيانات الضيف -->
+                <!-- بيانات الضيف مصفوفة لليمين -->
                 <div class="info">
                     <div class="info-row">
-                        <span>اسم الضيف: {{ .Name }}</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        <span>اسم الضيف: <strong>{{ .Name }}</strong></span>
                     </div>
                     <div class="info-row">
-                        <span>رقم الجوال: <span dir="ltr">{{ .Phone }}</span></span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                        <span>رقم الجوال: <strong dir="ltr">{{ .Phone }}</strong></span>
                     </div>
                     <div class="info-row">
-                        <span>عدد المرافقين: {{ .Companions }}</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <span>عدد المرافقين: <strong>{{ .Companions }}</strong></span>
                     </div>
                 </div>
 
@@ -230,7 +232,6 @@
                 
                 <div class="qr-text">
                     <p>أظهر هذا الكود عند الدخول</p>
-                    <p>احفظ هذه البطاقة على الجوال</p>
                 </div>
 
                 <!-- الأزرار -->
@@ -266,18 +267,17 @@ function saveTicketImage() {
     const oldText = btnText.innerText;
     btnText.innerText = "جاري الحفظ...";
     const btns = document.querySelectorAll('.btn');
-    btns.forEach(b => b.style.pointerEvents = 'none'); // تعطيل الأزرار مؤقتاً
+    btns.forEach(b => b.style.pointerEvents = 'none'); 
 
     const card = document.getElementById('ticketCard');
     const actions = card.querySelector('.actions');
 
-    // اخفاء الأزرار قبل التقاط الصورة
     actions.style.display = 'none';
 
     const qr = document.getElementById('qrImg');
     const doCapture = () => {
         html2canvas(card, {
-            backgroundColor: null, // الحفاظ على شفافية الحواف حول الكارت
+            backgroundColor: null, 
             scale: 2,
             useCORS: true,
             allowTaint: true

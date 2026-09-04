@@ -517,6 +517,17 @@ func BroadcastCloudHandler(c *gin.Context) {
 		sendMode = "buttons"
 	}
 
+	// خلفية بطاقة الدعوة (اختياري) — زي التخرج
+	bgPath := ""
+	if bgFile, err := c.FormFile("card_background"); err == nil && bgFile != nil {
+		_ = os.MkdirAll("./public/uploads", 0o755)
+		tmp := fmt.Sprintf("./public/uploads/cloud_bg_%d%s", time.Now().UnixNano(), filepath.Ext(bgFile.Filename))
+		if err := c.SaveUploadedFile(bgFile, tmp); err == nil {
+			bgPath = tmp
+		}
+	}
+
+	// مرفق عام اختياري (صورة/فيديو واحد لكل الناس) — لو موجود يُستخدم بدل البطاقة المولَّدة
 	var mediaPublicURL string
 	var mediaKind string
 
@@ -592,6 +603,9 @@ func BroadcastCloudHandler(c *gin.Context) {
 	}
 	host := c.Request.Host
 	baseURL := fmt.Sprintf("%s://%s", scheme, host)
+	if v := os.Getenv("APP_BASE_URL"); strings.TrimSpace(v) != "" {
+		baseURL = strings.TrimRight(v, "/")
+	}
 
 	type resultItem struct {
 		ID    uint   `json:"id"`
@@ -607,8 +621,7 @@ func BroadcastCloudHandler(c *gin.Context) {
 		wg          sync.WaitGroup
 	)
 
-	// Cloud API أكثر حساسية للـ rate limit → 3 متزامنين كحد أقصى
-	const maxWorkers = 3
+	const maxWorkers = 2 // أهدى ضد rate limit
 	sem := make(chan struct{}, maxWorkers)
 
 	for _, guest := range guests {
@@ -627,7 +640,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 		go func(g Guest) {
 			defer wg.Done()
 			defer func() { <-sem }()
-
 			defer func() {
 				if r := recover(); r != nil {
 					mu.Lock()
@@ -644,32 +656,39 @@ func BroadcastCloudHandler(c *gin.Context) {
 			fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
 
 			var sendErr error
-			if sendMode == "buttons" {
-				if mediaPublicURL != "" && mediaKind == "video" {
-					sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
-					if sendErr == nil {
-						time.Sleep(700 * time.Millisecond)
-						sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
-					}
-				} else {
-					imgURL := ""
-					if mediaKind == "image" {
-						imgURL = mediaPublicURL
-					}
-					sendErr = CloudSendInvite(g.Phone, fullMessage, imgURL)
+
+			// أولوية:
+			// 1) فيديو مرفق عام
+			// 2) صورة مرفق عامة
+			// 3) بطاقة مولَّدة (تصميم + باركود شخصي)
+			if mediaPublicURL != "" && mediaKind == "video" {
+				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
+				if sendErr == nil && sendMode == "buttons" {
+					time.Sleep(700 * time.Millisecond)
+					sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
 				}
-				if sendErr == nil && adminWhatsAppURL() != "" {
-					time.Sleep(500 * time.Millisecond)
-					_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
-				}
-			} else if mediaPublicURL != "" {
-				if mediaKind == "video" {
-					sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
+			} else if mediaPublicURL != "" && mediaKind == "image" {
+				if sendMode == "buttons" {
+					sendErr = CloudSendInvite(g.Phone, fullMessage, mediaPublicURL)
 				} else {
 					sendErr = CloudSendImageByURL(g.Phone, mediaPublicURL, fullMessage)
 				}
 			} else {
-				sendErr = CloudSendText(g.Phone, fullMessage)
+				// توليد بطاقة شخصية (خلفية + باركود)
+				cardURL, cardErr := saveWeddingCardPublic(&g, bgPath)
+				if cardErr != nil {
+					sendErr = fmt.Errorf("توليد البطاقة: %v", cardErr)
+				} else if sendMode == "buttons" {
+					sendErr = CloudSendInvite(g.Phone, fullMessage, cardURL)
+				} else {
+					sendErr = CloudSendImageByURL(g.Phone, cardURL, fullMessage)
+				}
+			}
+
+			// زرار تواصل الإدارة (اختياري)
+			if sendErr == nil && adminWhatsAppURL() != "" && sendMode == "buttons" {
+				time.Sleep(500 * time.Millisecond)
+				_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
 			}
 
 			mu.Lock()
@@ -691,11 +710,15 @@ func BroadcastCloudHandler(c *gin.Context) {
 			}
 			mu.Unlock()
 
-			time.Sleep(600 * time.Millisecond)
+			time.Sleep(1200 * time.Millisecond)
 		}(guest)
 	}
 
 	wg.Wait()
+
+	if bgPath != "" {
+		_ = os.Remove(bgPath)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":       fmt.Sprintf("Cloud API: %d نجح، %d فشل", len(successList), len(failList)),

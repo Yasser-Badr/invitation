@@ -93,9 +93,9 @@ func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 	}
 
 	var b strings.Builder
-	b.WriteString("يا هلا فيك يا ")
+	b.WriteString("يا مرحباً بك يا ")
 	b.WriteString(g.Name)
-	b.WriteString("* 🎓\n\n")
+	b.WriteString(" 🎓\n\n")
 
 	if s.MainLine != "" {
 		b.WriteString(" ")
@@ -107,15 +107,15 @@ func buildGradInviteMessage(g *GradGuest, s GradSettings) string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString("\nعدد المرافقين :| 👥 ")
+	b.WriteString("\n 👥|عدد المرافقين :")
 	b.WriteString(companionsText)
 
 	if s.DateText != "" {
-		b.WriteString("\n| 📅 ")
+		b.WriteString("\n🗓️|")
 		b.WriteString(s.DateText)
 	}
 	if s.LocationName != "" {
-		b.WriteString("\n| 📍 ")
+		b.WriteString("\n📍|  ")
 		b.WriteString(s.LocationName)
 	}
 

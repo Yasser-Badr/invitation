@@ -657,25 +657,28 @@ func BroadcastCloudHandler(c *gin.Context) {
 
 			var sendErr error
 
-			// أولوية:
-			// 1) فيديو مرفق عام
-			// 2) صورة مرفق عامة
-			// 3) بطاقة مولَّدة (تصميم + باركود شخصي)
+			// فيديو مرفق عام → يتبعت كما هو
 			if mediaPublicURL != "" && mediaKind == "video" {
 				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
 				if sendErr == nil && sendMode == "buttons" {
 					time.Sleep(700 * time.Millisecond)
 					sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
 				}
-			} else if mediaPublicURL != "" && mediaKind == "image" {
-				if sendMode == "buttons" {
-					sendErr = CloudSendInvite(g.Phone, fullMessage, mediaPublicURL)
-				} else {
-					sendErr = CloudSendImageByURL(g.Phone, mediaPublicURL, fullMessage)
-				}
 			} else {
-				// توليد بطاقة شخصية (خلفية + باركود)
-				cardURL, cardErr := saveWeddingCardPublic(&g, bgPath)
+				// خلفية البطاقة:
+				// 1) card_background من الفورم
+				// 2) أو صورة media المرفوعة (نركّب عليها باركود شخصي)
+				guestBg := bgPath
+				if guestBg == "" && mediaPublicURL != "" && mediaKind == "image" {
+					// نحول اللينك العام لمسار محلي
+					// مثال: https://domain/public/uploads/x.png → ./public/uploads/x.png
+					base := strings.TrimRight(getAppBaseURL(), "/")
+					if strings.HasPrefix(mediaPublicURL, base+"/") {
+						guestBg = "." + strings.TrimPrefix(mediaPublicURL, base)
+					}
+				}
+
+				cardURL, cardErr := saveWeddingCardPublic(&g, guestBg)
 				if cardErr != nil {
 					sendErr = fmt.Errorf("توليد البطاقة: %v", cardErr)
 				} else if sendMode == "buttons" {
@@ -685,12 +688,11 @@ func BroadcastCloudHandler(c *gin.Context) {
 				}
 			}
 
-			// زرار تواصل الإدارة (اختياري)
 			if sendErr == nil && adminWhatsAppURL() != "" && sendMode == "buttons" {
 				time.Sleep(500 * time.Millisecond)
 				_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
 			}
-
+			
 			mu.Lock()
 			if sendErr != nil {
 				failList = append(failList, resultItem{

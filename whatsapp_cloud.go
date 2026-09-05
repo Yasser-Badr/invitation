@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"sync"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -517,19 +516,8 @@ func BroadcastCloudHandler(c *gin.Context) {
 		sendMode = "buttons"
 	}
 
-	// خلفية بطاقة الدعوة (اختياري) — زي التخرج
-	bgPath := ""
-	if bgFile, err := c.FormFile("card_background"); err == nil && bgFile != nil {
-		_ = os.MkdirAll("./public/uploads", 0o755)
-		tmp := fmt.Sprintf("./public/uploads/cloud_bg_%d%s", time.Now().UnixNano(), filepath.Ext(bgFile.Filename))
-		if err := c.SaveUploadedFile(bgFile, tmp); err == nil {
-			bgPath = tmp
-		}
-	}
-
-	// مرفق عام اختياري (صورة/فيديو واحد لكل الناس) — لو موجود يُستخدم بدل البطاقة المولَّدة
 	var mediaPublicURL string
-	var mediaKind string
+	var mediaKind string // "image" | "video"
 
 	fileHeader, err := c.FormFile("media")
 	if err == nil && fileHeader != nil {
@@ -603,9 +591,6 @@ func BroadcastCloudHandler(c *gin.Context) {
 	}
 	host := c.Request.Host
 	baseURL := fmt.Sprintf("%s://%s", scheme, host)
-	if v := os.Getenv("APP_BASE_URL"); strings.TrimSpace(v) != "" {
-		baseURL = strings.TrimRight(v, "/")
-	}
 
 	type resultItem struct {
 		ID    uint   `json:"id"`
@@ -613,113 +598,62 @@ func BroadcastCloudHandler(c *gin.Context) {
 		Phone string `json:"phone"`
 		Error string `json:"error,omitempty"`
 	}
+	var successList, failList []resultItem
 
-	var (
-		successList []resultItem
-		failList    []resultItem
-		mu          sync.Mutex
-		wg          sync.WaitGroup
-	)
-
-	const maxWorkers = 2 // أهدى ضد rate limit
-	sem := make(chan struct{}, maxWorkers)
-
-	for _, guest := range guests {
-		if strings.TrimSpace(guest.Phone) == "" {
-			mu.Lock()
-			failList = append(failList, resultItem{
-				ID: guest.ID, Name: guest.Name, Phone: guest.Phone, Error: "رقم الهاتف فارغ",
-			})
-			mu.Unlock()
+	for _, g := range guests {
+		if strings.TrimSpace(g.Phone) == "" {
+			failList = append(failList, resultItem{ID: g.ID, Name: g.Name, Phone: g.Phone, Error: "رقم الهاتف فارغ"})
 			continue
 		}
+		inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
+		fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
+		fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
 
-		wg.Add(1)
-		sem <- struct{}{}
-
-		go func(g Guest) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			defer func() {
-				if r := recover(); r != nil {
-					mu.Lock()
-					failList = append(failList, resultItem{
-						ID: g.ID, Name: g.Name, Phone: g.Phone,
-						Error: fmt.Sprintf("panic: %v", r),
-					})
-					mu.Unlock()
-				}
-			}()
-
-			inviteLink := fmt.Sprintf("%s/invite/%s", baseURL, g.Token)
-			fullMessage := strings.ReplaceAll(messageText, "{name}", g.Name)
-			fullMessage = strings.ReplaceAll(fullMessage, "{link}", inviteLink)
-
-			var sendErr error
-
-			// فيديو مرفق عام → يتبعت كما هو
+		var sendErr error
+		if sendMode == "buttons" {
 			if mediaPublicURL != "" && mediaKind == "video" {
 				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
-				if sendErr == nil && sendMode == "buttons" {
-					time.Sleep(700 * time.Millisecond)
+				if sendErr == nil {
+					time.Sleep(900 * time.Millisecond)
 					sendErr = CloudSendInvite(g.Phone, "للرد على الدعوة اختر:", "")
 				}
 			} else {
-				// خلفية البطاقة:
-				// 1) card_background من الفورم
-				// 2) أو صورة media المرفوعة (نركّب عليها باركود شخصي)
-				guestBg := bgPath
-				if guestBg == "" && mediaPublicURL != "" && mediaKind == "image" {
-					// نحول اللينك العام لمسار محلي
-					// مثال: https://domain/public/uploads/x.png → ./public/uploads/x.png
-					base := strings.TrimRight(getAppBaseURL(), "/")
-					if strings.HasPrefix(mediaPublicURL, base+"/") {
-						guestBg = "." + strings.TrimPrefix(mediaPublicURL, base)
-					}
+				imgURL := ""
+				if mediaKind == "image" {
+					imgURL = mediaPublicURL
 				}
-
-				cardURL, cardErr := saveWeddingCardPublic(&g, guestBg)
-				if cardErr != nil {
-					sendErr = fmt.Errorf("توليد البطاقة: %v", cardErr)
-				} else if sendMode == "buttons" {
-					sendErr = CloudSendInvite(g.Phone, fullMessage, cardURL)
-				} else {
-					sendErr = CloudSendImageByURL(g.Phone, cardURL, fullMessage)
-				}
+				sendErr = CloudSendInvite(g.Phone, fullMessage, imgURL)
 			}
-
-			if sendErr == nil && adminWhatsAppURL() != "" && sendMode == "buttons" {
-				time.Sleep(500 * time.Millisecond)
+			if sendErr == nil && adminWhatsAppURL() != "" {
+				time.Sleep(700 * time.Millisecond)
 				_ = CloudSendContactAdmin(g.Phone, "للتواصل مع الإدارة:")
 			}
-			
-			mu.Lock()
-			if sendErr != nil {
-				failList = append(failList, resultItem{
-					ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
-				})
-				fmt.Printf("❌ Cloud فشل %s: %v\n", g.Name, sendErr)
+		} else if mediaPublicURL != "" {
+			if mediaKind == "video" {
+				sendErr = CloudSendVideoByURL(g.Phone, mediaPublicURL, fullMessage)
 			} else {
-				successList = append(successList, resultItem{
-					ID: g.ID, Name: g.Name, Phone: g.Phone,
-				})
-				now := kuwaitNow()
-				_ = DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
-					"invite_sent":    true,
-					"invite_sent_at": now,
-				})
-				fmt.Printf("✅ Cloud نجح %s\n", g.Name)
+				sendErr = CloudSendImageByURL(g.Phone, mediaPublicURL, fullMessage)
 			}
-			mu.Unlock()
+		} else {
+			sendErr = CloudSendText(g.Phone, fullMessage)
+		}
 
-			time.Sleep(1200 * time.Millisecond)
-		}(guest)
-	}
-
-	wg.Wait()
-
-	if bgPath != "" {
-		_ = os.Remove(bgPath)
+		if sendErr != nil {
+			failList = append(failList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: sendErr.Error(),
+			})
+			fmt.Printf("❌ Cloud فشل %s: %v\n", g.Name, sendErr)
+		} else {
+			successList = append(successList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone,
+			})
+			now := kuwaitNow()
+			DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
+			    "invite_sent":    true,
+	            "invite_sent_at": now,
+			})
+			fmt.Printf("✅ Cloud نجح %s\n", g.Name)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

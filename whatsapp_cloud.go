@@ -680,24 +680,39 @@ func CloudSendWeddingTemplate(to, guestName string) error {
 		guestName = "ضيفنا العزيز"
 	}
 
+	// ← غيّر الرابط ده لصورة عامة عندك (نفس صورة الدعوة أو أي صورة مناسبة)
+	imageURL := "https://github.com/Yasser-Badr/images/blob/main/invite_image.jpg"
+
 	payload := map[string]interface{}{
 		"messaging_product": "whatsapp",
-		"recipient_type":    "individual",
 		"to":                to,
 		"type":              "template",
 		"template": map[string]interface{}{
 			"name": "wedding_invitation",
 			"language": map[string]interface{}{
-				"code": "ar", // القالب عربي
+				"code": "ar",
 			},
 			"components": []map[string]interface{}{
+				// ===== Header (الصورة) =====
+				{
+					"type": "header",
+					"parameters": []map[string]interface{}{
+						{
+							"type": "image",
+							"image": map[string]interface{}{
+								"link": imageURL,
+							},
+						},
+					},
+				},
+				// ===== Body (الاسم) =====
 				{
 					"type": "body",
 					"parameters": []map[string]interface{}{
 						{
-							"type":            "text",
-							"parameter_name":  "name", // ← ده المهم (اسم المتغير زي ما في القالب)
-							"text":            guestName,
+							"type":           "text",
+							"parameter_name": "name",
+							"text":           guestName,
 						},
 					},
 				},

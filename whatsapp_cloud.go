@@ -681,7 +681,7 @@ func CloudSendWeddingTemplate(to, guestName string) error {
 	}
 
 	// ← غيّر الرابط ده لصورة عامة عندك (نفس صورة الدعوة أو أي صورة مناسبة)
-	imageURL := "https://github.com/Yasser-Badr/images/blob/main/invite_image.jpg"
+	imageURL := "https://raw.githubusercontent.com/Yasser-Badr/images/main/invite_image.jpg"
 
 	payload := map[string]interface{}{
 		"messaging_product": "whatsapp",

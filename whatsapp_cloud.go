@@ -229,46 +229,67 @@ func CloudWebhookReceiveHandler(c *gin.Context) {
 				from, _ := msg["from"].(string)
 				msgType, _ := msg["type"].(string)
 
-				btnID := ""
-				text := ""
-
-				if msgType == "button" {
-					button, _ := msg["button"].(map[string]interface{})
-					btnID, _ = button["payload"].(string)
-					if btnID == "" {
-						btnID, _ = button["text"].(string)
-					}
-				}
-				if msgType == "interactive" {
-					inter, _ := msg["interactive"].(map[string]interface{})
-					if inter != nil {
-						if br, ok := inter["button_reply"].(map[string]interface{}); ok {
-							btnID, _ = br["id"].(string)
-							if t, ok := br["title"].(string); ok {
-								text = t
-							}
-						}
-					}
-				}
-				if msgType == "text" {
-					t, _ := msg["text"].(map[string]interface{})
-					text, _ = t["body"].(string)
-				}
-
-				textNorm := strings.ToLower(strings.TrimSpace(text))
-				action := ""
-				switch {
-				case btnID == "confirm", textNorm == "تأكيد", textNorm == "تاكيد", textNorm == "1":
-					action = "confirm"
-				case btnID == "decline", textNorm == "اعتذار", textNorm == "2":
-					action = "decline"
-				case btnID == "location", textNorm == "لوكيشن 📍", strings.Contains(textNorm, "موقع"):
-					action = "location"
-				}
-				if action == "" || from == "" {
-					continue
-				}
-
+				// من هنا
+                btnID := ""
+                text := ""
+                
+                if msgType == "button" {
+                	button, _ := msg["button"].(map[string]interface{})
+                	btnID, _ = button["payload"].(string)
+                	if t, ok := button["text"].(string); ok {
+                		text = t
+                		if btnID == "" {
+                			btnID = t // لو مفيش payload استخدم نص الزرار
+                		}
+                	}
+                }
+                if msgType == "interactive" {
+                	inter, _ := msg["interactive"].(map[string]interface{})
+                	if inter != nil {
+                		if br, ok := inter["button_reply"].(map[string]interface{}); ok {
+                			btnID, _ = br["id"].(string)
+                			if t, ok := br["title"].(string); ok {
+                				text = t
+                				if btnID == "" {
+                					btnID = t
+                				}
+                			}
+                		}
+                	}
+                }
+                if msgType == "text" {
+                	t, _ := msg["text"].(map[string]interface{})
+                	text, _ = t["body"].(string)
+                }
+                
+                textNorm := strings.ToLower(strings.TrimSpace(text))
+                btnNorm := strings.ToLower(strings.TrimSpace(btnID))
+                
+                action := ""
+                switch {
+                case btnNorm == "confirm", btnNorm == "تأكيد", btnNorm == "تاكيد",
+                	textNorm == "تأكيد", textNorm == "تاكيد", textNorm == "1",
+                	strings.Contains(btnNorm, "confirm"):
+                	action = "confirm"
+                
+                case btnNorm == "decline", btnNorm == "اعتذار",
+                	textNorm == "اعتذار", textNorm == "2",
+                	strings.Contains(btnNorm, "decline"):
+                	action = "decline"
+                
+                case btnNorm == "location", textNorm == "لوكيشن 📍", strings.Contains(textNorm, "موقع"):
+                	action = "location"
+                }
+                
+                // للتشخيص (اختياري — امسحه بعد ما يتأكد إن الزرار شغال)
+                fmt.Printf("🔘 webhook button: type=%s btnID=%q text=%q action=%q from=%s\n",
+                	msgType, btnID, text, action, from)
+                
+                if action == "" || from == "" {
+                	continue
+                    
+                }
+                
 				guest, ok := findGuestByPhone(from)
 				if !ok {
 					fmt.Printf("⚠️ Cloud webhook: رقم غير مسجل %s\n", from)

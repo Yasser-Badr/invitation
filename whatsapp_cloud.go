@@ -685,11 +685,11 @@ func CloudSendWeddingTemplate(to, guestName string) error {
 		"to":                to,
 		"type":              "template",
 		"template": map[string]interface{}{
-			"name": "hello_world",
-			//"name": "wedding_invitation",
+			//"name": "hello_world",
+			"name": "wedding_invitation",
 			"language": map[string]interface{}{
-				"code": "en_US",
-				//"code": "ar",
+				//"code": "en_US",
+				"code": "ar",
 			},
 			"components": []map[string]interface{}{
 				{

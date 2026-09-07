@@ -298,6 +298,7 @@
             <button class="btn btn-teal" onclick="openCloudModal('classic')">☁️ إرسال نص</button>
             <button class="btn btn-teal" onclick="openCloudModal('buttons')">☁️ أزرار تأكيد</button>
             <button class="btn btn-teal" onclick="openCloudModalSelected('buttons')">☁️ أزرار للمحددين</button>
+            <button class="btn btn-teal" style="background:#0f766e;" onclick="sendCloudTemplateSelected()">📋 قالب الدعوة للمحددين (250)</button>
         </div>
     </div>
 </div>
@@ -1026,6 +1027,38 @@ try {
     var raw = localStorage.getItem('lastSendReport');
     if (raw) lastSendReport = JSON.parse(raw);
 } catch (e) {}
+
+//use cloud Template
+function sendCloudTemplateSelected() {
+    var checkboxes = document.querySelectorAll('.guest-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('حدد مدعو واحد على الأقل');
+        return;
+    }
+    if (checkboxes.length > 200) {
+        alert('الحد الآمن 200 مدعو في المرة عشان ما تتجاوزش الـ 250 محادثة. قلل العدد.');
+        return;
+    }
+    if (!confirm('إرسال قالب wedding_invitation إلى ' + checkboxes.length + ' مدعو؟\n\nهذا يستخدم من الـ 250 محادثة اليومية.')) {
+        return;
+    }
+
+    var ids = Array.prototype.map.call(checkboxes, function (c) { return c.value; }).filter(Boolean);
+    var fd = new FormData();
+    fd.append('selected_only', '1');
+    fd.append('guest_ids', ids.join(','));
+
+    fetch('/admin/api/broadcast-cloud-template', { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) {
+                alert('خطأ: ' + data.error);
+            } else {
+                showSendReport(data);
+            }
+        })
+        .catch(function () { alert('خطأ اتصال'); });
+}
 </script>
 
 <script>

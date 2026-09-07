@@ -62,6 +62,7 @@ func cloudSend(payload map[string]interface{}) error {
 
 	respBody, _ := io.ReadAll(res.Body)
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
+	    fmt.Printf("❌ Cloud API FULL ERROR: %s\n", string(respBody))
 		return fmt.Errorf("cloud api error %d: %s", res.StatusCode, string(respBody))
 	}
 

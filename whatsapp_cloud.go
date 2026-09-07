@@ -668,3 +668,141 @@ func BroadcastCloudHandler(c *gin.Context) {
 		"has_media":     mediaPublicURL != "",
 	})
 }
+
+// ===================== إرسال قالب الدعوة (جديد - بدون لمس الدوال القديمة) =====================
+
+// CloudSendWeddingTemplate يرسل القالب wedding_invitation مع اسم الضيف
+// القالب لازم يكون Approved في Meta (لغة ar)
+func CloudSendWeddingTemplate(to, guestName string) error {
+	to = cloudNormalizePhone(to)
+	if guestName == "" {
+		guestName = "ضيفنا العزيز"
+	}
+
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"recipient_type":    "individual",
+		"to":                to,
+		"type":              "template",
+		"template": map[string]interface{}{
+			"name": "hello_world",
+			//"name": "wedding_invitation",
+			"language": map[string]interface{}{
+				"code": "en_US",
+				//"code": "ar",
+			},
+			"components": []map[string]interface{}{
+				{
+					"type": "body",
+					"parameters": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": guestName,
+						},
+					},
+				},
+			},
+		},
+	}
+	return cloudSend(payload)
+}
+
+// BroadcastCloudTemplateHandler بث القالب للمحددين أو الكل (يستخدم 250 محادثة)
+func BroadcastCloudTemplateHandler(c *gin.Context) {
+	if cloudToken() == "" || cloudPhoneNumberID() == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cloud API غير مضبوط — راجع ملف .env"})
+		return
+	}
+
+	idsStr := c.PostForm("guest_ids")
+	selectedOnly := c.PostForm("selected_only") == "1"
+
+	var guests []Guest
+	if selectedOnly || strings.TrimSpace(idsStr) != "" {
+		parts := strings.Split(idsStr, ",")
+		var ids []uint
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			var id uint
+			if _, err := fmt.Sscanf(p, "%d", &id); err == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "لم يتم تحديد مدعوين صالحين"})
+			return
+		}
+		DB.Where("id IN ?", ids).Find(&guests)
+	} else {
+		// الافتراضي: اللي لسه ما اتبعتلهمش دعوة
+		DB.Where("invite_sent = ?", false).Find(&guests)
+	}
+
+	if len(guests) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يوجد مدعوين للإرسال"})
+		return
+	}
+
+	// حماية من تجاوز حد 250
+	const maxSafe = 200
+	if len(guests) > maxSafe {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("عدد المحددين %d أكبر من الحد الآمن (%d). حدد أقل عشان ما تتجاوزش الـ 250 محادثة.", len(guests), maxSafe),
+		})
+		return
+	}
+
+	type resultItem struct {
+		ID    uint   `json:"id"`
+		Name  string `json:"name"`
+		Phone string `json:"phone"`
+		Error string `json:"error,omitempty"`
+	}
+	var successList, failList []resultItem
+
+	for i, g := range guests {
+		if strings.TrimSpace(g.Phone) == "" {
+			failList = append(failList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: "رقم الهاتف فارغ",
+			})
+			continue
+		}
+
+		err := CloudSendWeddingTemplate(g.Phone, g.Name)
+		if err != nil {
+			failList = append(failList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: err.Error(),
+			})
+			fmt.Printf("❌ قالب فشل %s: %v\n", g.Name, err)
+		} else {
+			successList = append(successList, resultItem{
+				ID: g.ID, Name: g.Name, Phone: g.Phone,
+			})
+			now := kuwaitNow()
+			_ = DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
+				"invite_sent":    true,
+				"invite_sent_at": now,
+			})
+			fmt.Printf("✅ قالب نجح %s\n", g.Name)
+		}
+
+		// تأخير بسيط عشان ما نضربش الـ rate limit
+		if i < len(guests)-1 {
+			time.Sleep(1200 * time.Millisecond)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       fmt.Sprintf("قالب Cloud: %d نجح، %d فشل", len(successList), len(failList)),
+		"success_count": len(successList),
+		"fail_count":    len(failList),
+		"success_list":  successList,
+		"fail_list":     failList,
+		"via":           "cloud_template",
+		"send_mode":     "template",
+		"message_text":  "wedding_invitation template",
+	})
+}

@@ -1194,6 +1194,8 @@ r.SetHTMLTemplate(tmpl)
 		managerOnly.GET("/admin/users", RenderUsersPage)
         managerOnly.POST("/admin/api/users", CreateAdminUser)
         managerOnly.DELETE("/admin/api/users/:id", DeleteAdminUser)
+        //use api template
+        managerOnly.POST("/admin/api/broadcast-cloud-template", BroadcastCloudTemplateHandler)
 	}
 
 	// المسح + المدير

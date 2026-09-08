@@ -267,14 +267,26 @@ func CloudWebhookReceiveHandler(c *gin.Context) {
                 
                 action := ""
                 switch {
-                case btnNorm == "confirm", btnNorm == "تأكيد", btnNorm == "تاكيد",
-                	textNorm == "تأكيد", textNorm == "تاكيد", textNorm == "1",
-                	strings.Contains(btnNorm, "confirm"):
+                case btnNorm == "confirm",
+                	btnNorm == "تأكيد",
+                	btnNorm == "تاكيد",
+                	btnNorm == "تأكيد الحضور",
+                	textNorm == "تأكيد",
+                	textNorm == "تاكيد",
+                	textNorm == "تأكيد الحضور",
+                	textNorm == "1",
+                	strings.Contains(btnNorm, "confirm"),
+                	strings.Contains(textNorm, "تأكيد الحضور"):
                 	action = "confirm"
                 
-                case btnNorm == "decline", btnNorm == "اعتذار",
-                	textNorm == "اعتذار", textNorm == "2",
-                	strings.Contains(btnNorm, "decline"):
+                case btnNorm == "decline",
+                	btnNorm == "اعتذار",
+                	btnNorm == "الاعتذار عن الحضور",
+                	textNorm == "اعتذار",
+                	textNorm == "الاعتذار عن الحضور",
+                	textNorm == "2",
+                	strings.Contains(btnNorm, "decline"),
+                	strings.Contains(textNorm, "اعتذار"):
                 	action = "decline"
                 
                 case btnNorm == "location", textNorm == "لوكيشن 📍", strings.Contains(textNorm, "موقع"):
@@ -695,13 +707,21 @@ func BroadcastCloudHandler(c *gin.Context) {
 
 // CloudSendWeddingTemplate يرسل القالب wedding_invitation مع اسم الضيف
 // القالب لازم يكون Approved في Meta (لغة ar)
-func CloudSendWeddingTemplate(to, guestName string) error {
+func CloudSendAlFaisalTemplate(to, guestName, couple, dateText string) error {
 	to = cloudNormalizePhone(to)
 	if guestName == "" {
 		guestName = "ضيفنا العزيز"
 	}
+	if couple == "" {
+		couple = "العروسين"
+	}
+	if dateText == "" {
+		dateText = "قبل الزفاف بثلاث ايام "
+	}
 
-	// ← غيّر الرابط ده لصورة عامة عندك (نفس صورة الدعوة أو أي صورة مناسبة)
+	// رابط صورة مباشر (نفس صورة القالب أو ارفعها على سيرفرك)
+	//imageURL := "https://invite.cloud-ip.cc/public/uploads/invite_header.jpg"
+	// أو raw github لو بتستخدمه:
 	imageURL := "https://raw.githubusercontent.com/Yasser-Badr/images/main/invite_image.jpg"
 
 	payload := map[string]interface{}{
@@ -709,12 +729,12 @@ func CloudSendWeddingTemplate(to, guestName string) error {
 		"to":                to,
 		"type":              "template",
 		"template": map[string]interface{}{
-			"name": "wedding_invitation",
+			"name": "al_faisal",
 			"language": map[string]interface{}{
 				"code": "ar",
 			},
 			"components": []map[string]interface{}{
-				// ===== Header (الصورة) =====
+				// Header - صورة
 				{
 					"type": "header",
 					"parameters": []map[string]interface{}{
@@ -726,7 +746,7 @@ func CloudSendWeddingTemplate(to, guestName string) error {
 						},
 					},
 				},
-				// ===== Body (الاسم) =====
+				// Body - 3 متغيرات بأسمائها
 				{
 					"type": "body",
 					"parameters": []map[string]interface{}{
@@ -734,6 +754,16 @@ func CloudSendWeddingTemplate(to, guestName string) error {
 							"type":           "text",
 							"parameter_name": "name",
 							"text":           guestName,
+						},
+						{
+							"type":           "text",
+							"parameter_name": "couple",
+							"text":           couple,
+						},
+						{
+							"type":           "text",
+							"parameter_name": "date",
+							"text":           dateText,
 						},
 					},
 				},
@@ -748,6 +778,16 @@ func BroadcastCloudTemplateHandler(c *gin.Context) {
 	if cloudToken() == "" || cloudPhoneNumberID() == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cloud API غير مضبوط — راجع ملف .env"})
 		return
+	}
+
+	// المتغيرين اللي هتدخلهم من الداشبورد
+	couple := strings.TrimSpace(c.PostForm("couple"))
+	dateText := strings.TrimSpace(c.PostForm("date_text"))
+	if couple == "" {
+		couple = "العروسين"
+	}
+	if dateText == "" {
+		dateText = "قبل الزفاف بثلاث ايام"
 	}
 
 	idsStr := c.PostForm("guest_ids")
@@ -773,7 +813,6 @@ func BroadcastCloudTemplateHandler(c *gin.Context) {
 		}
 		DB.Where("id IN ?", ids).Find(&guests)
 	} else {
-		// الافتراضي: اللي لسه ما اتبعتلهمش دعوة
 		DB.Where("invite_sent = ?", false).Find(&guests)
 	}
 
@@ -782,11 +821,10 @@ func BroadcastCloudTemplateHandler(c *gin.Context) {
 		return
 	}
 
-	// حماية من تجاوز حد 250
 	const maxSafe = 200
 	if len(guests) > maxSafe {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("عدد المحددين %d أكبر من الحد الآمن (%d). حدد أقل عشان ما تتجاوزش الـ 250 محادثة.", len(guests), maxSafe),
+			"error": fmt.Sprintf("عدد المحددين %d أكبر من الحد الآمن (%d).", len(guests), maxSafe),
 		})
 		return
 	}
@@ -807,7 +845,7 @@ func BroadcastCloudTemplateHandler(c *gin.Context) {
 			continue
 		}
 
-		err := CloudSendWeddingTemplate(g.Phone, g.Name)
+		err := CloudSendAlFaisalTemplate(g.Phone, g.Name, couple, dateText)
 		if err != nil {
 			failList = append(failList, resultItem{
 				ID: g.ID, Name: g.Name, Phone: g.Phone, Error: err.Error(),
@@ -825,20 +863,21 @@ func BroadcastCloudTemplateHandler(c *gin.Context) {
 			fmt.Printf("✅ قالب نجح %s\n", g.Name)
 		}
 
-		// تأخير بسيط عشان ما نضربش الـ rate limit
 		if i < len(guests)-1 {
 			time.Sleep(1200 * time.Millisecond)
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       fmt.Sprintf("قالب Cloud: %d نجح، %d فشل", len(successList), len(failList)),
+		"message":       fmt.Sprintf("قالب al_faisal: %d نجح، %d فشل", len(successList), len(failList)),
 		"success_count": len(successList),
 		"fail_count":    len(failList),
 		"success_list":  successList,
 		"fail_list":     failList,
 		"via":           "cloud_template",
 		"send_mode":     "template",
-		"message_text":  "wedding_invitation template",
+		"message_text":  "al_faisal template",
+		"couple":        couple,
+		"date_text":     dateText,
 	})
 }

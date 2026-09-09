@@ -722,7 +722,7 @@ func CloudSendAlFaisalTemplate(to, guestName, couple, dateText string) error {
 	// رابط صورة مباشر (نفس صورة القالب أو ارفعها على سيرفرك)
 	//imageURL := "https://invite.cloud-ip.cc/public/uploads/invite_header.jpg"
 	// أو raw github لو بتستخدمه:
-	imageURL := "https://raw.githubusercontent.com/Yasser-Badr/images/main/invite_image.jpg"
+	imageURL := "https://raw.githubusercontent.com/Yasser-Badr/images/main/al_faisal.png"
 
 	payload := map[string]interface{}{
 		"messaging_product": "whatsapp",

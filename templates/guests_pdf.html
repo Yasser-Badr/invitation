@@ -2,25 +2,39 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>{{ .Title }}</title>
+  <title>قائمة المدعوين</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-      margin: 20px;
-      color: #222;
-      font-size: 14px;
+      margin: 24px;
+      color: #1a1a1a;
+      font-size: 13px;
     }
     h1 {
-      text-align: center;
-      color: #1b4332;
-      margin-bottom: 8px;
+      margin: 0 0 6px;
       font-size: 20px;
+      color: #1b4332;
+      text-align: center;
     }
     .meta {
       text-align: center;
-      color: #666;
-      margin-bottom: 16px;
+      color: #555;
+      margin-bottom: 18px;
       font-size: 12px;
+    }
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
+    .stats span {
+      background: #f0f2f5;
+      padding: 4px 12px;
+      border-radius: 16px;
     }
     table {
       width: 100%;
@@ -28,40 +42,53 @@
     }
     th, td {
       border: 1px solid #ccc;
-      padding: 10px 8px;
+      padding: 8px 6px;
       text-align: center;
     }
     th {
       background: #1b4332;
       color: #fff;
+      font-size: 12px;
     }
-    tr:nth-child(even) { background: #f7f9f8; }
+    tr:nth-child(even) { background: #f8faf9; }
     .st-confirmed { color: #155724; font-weight: 700; }
     .st-declined  { color: #721c24; font-weight: 700; }
     .st-pending   { color: #856404; font-weight: 700; }
-    .no-print { text-align: center; margin-bottom: 14px; }
+    .no-print {
+      text-align: center;
+      margin-bottom: 16px;
+    }
     .btn {
+      display: inline-block;
       background: #1b4332;
       color: #fff;
       border: none;
-      padding: 10px 16px;
+      padding: 10px 18px;
       border-radius: 8px;
       cursor: pointer;
       font-weight: 600;
+      font-size: 14px;
     }
     @media print {
       .no-print { display: none !important; }
+      body { margin: 10mm; }
       th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
   <div class="no-print">
-    <button class="btn" onclick="window.print()">🖨️ طباعة</button>
+    <button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
   </div>
 
-  <h1>{{ .Title }}</h1>
-  <div class="meta">عدد المدعوين: {{ len .Guests }}</div>
+  <h1>قائمة المدعوين</h1>
+  <div class="meta">تاريخ التصدير: {{ .Now }}</div>
+  <div class="stats">
+    <span>الإجمالي: {{ .Total }}</span>
+    <span>مؤكد: {{ .Confirmed }}</span>
+    <span>معتذر: {{ .Declined }}</span>
+    <span>قيد الانتظار: {{ .Pending }}</span>
+  </div>
 
   <table>
     <thead>
@@ -71,6 +98,9 @@
         <th>الهاتف</th>
         <th>المرافقين</th>
         <th>الحالة</th>
+        <th>الدخول</th>
+        <th>وقت الدخول</th>
+        <th>تاريخ التسجيل</th>
       </tr>
     </thead>
     <tbody>
@@ -89,16 +119,24 @@
             <span class="st-pending">قيد الانتظار</span>
           {{ end }}
         </td>
+        <td>
+          {{ if $g.CheckedIn }}تم الدخول{{ else }}لم يدخل{{ end }}
+        </td>
+        <td>
+          {{ if $g.CheckedInAt }}{{ formatDate $g.CheckedInAt }}{{ else }}—{{ end }}
+        </td>
+        <td>{{ formatDate $g.CreatedAt }}</td>
       </tr>
       {{ else }}
-      <tr><td colspan="5">لا يوجد مدعوين</td></tr>
+      <tr><td colspan="8">لا يوجد مدعوين</td></tr>
       {{ end }}
     </tbody>
   </table>
 
   <script>
+    // فتح نافذة الطباعة تلقائيًا (المستخدم يختار "حفظ كـ PDF")
     window.addEventListener('load', function () {
-      setTimeout(function () { window.print(); }, 300);
+      setTimeout(function () { window.print(); }, 400);
     });
   </script>
 </body>

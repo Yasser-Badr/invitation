@@ -328,14 +328,20 @@ func PrintReport(c *gin.Context) {
 	var title string
 
 	switch status {
-case "confirmed":
-		DB.Where("status = ?", "confirmed").Find(&guests)
+	case "confirmed":
+		DB.Where("status = ?", "confirmed").Order("id asc").Find(&guests)
 		title = "قائمة مؤكدي الحضور"
 	case "declined":
-		DB.Where("status = ?", "declined").Find(&guests)
+		DB.Where("status = ?", "declined").Order("id asc").Find(&guests)
 		title = "قائمة المعتذرين عن الحضور"
 	case "all":
-		DB.Find(&guests) // جلب جميع المدعوين
+		var confirmed, declined, pending []Guest
+		DB.Where("status = ?", "confirmed").Order("id asc").Find(&confirmed)
+		DB.Where("status = ?", "declined").Order("id asc").Find(&declined)
+		DB.Where("status = ?", "pending").Order("id asc").Find(&pending)
+		guests = append(guests, confirmed...)
+		guests = append(guests, declined...)
+		guests = append(guests, pending...)
 		title = "قائمة جميع المدعوين"
 	default:
 		c.String(http.StatusBadRequest, "طلب غير صالح")
@@ -347,7 +353,6 @@ case "confirmed":
 		"Guests": guests,
 	})
 }
-
 // === دالة الحذف المحدثة (لحذف الباركود مع البيانات) ===
 // === دالة الحذف المحدثة (لحذف نهائي Unscoped) ===
 func DeleteGuestAdmin(c *gin.Context) {
@@ -944,6 +949,30 @@ func ExportGuestsExcel(c *gin.Context) {
 	_ = f.Write(c.Writer)
 }
 
+func ExportGuestsPDF(c *gin.Context) {
+	var confirmed, declined, pending []Guest
+
+	DB.Where("status = ?", "confirmed").Order("id asc").Find(&confirmed)
+	DB.Where("status = ?", "declined").Order("id asc").Find(&declined)
+	DB.Where("status = ?", "pending").Order("id asc").Find(&pending)
+
+	// الترتيب: مؤكد → معتذر → قيد الانتظار
+	guests := make([]Guest, 0, len(confirmed)+len(declined)+len(pending))
+	guests = append(guests, confirmed...)
+	guests = append(guests, declined...)
+	guests = append(guests, pending...)
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.HTML(http.StatusOK, "guests_pdf.html", gin.H{
+		"Guests":    guests,
+		"Total":     len(guests),
+		"Confirmed": len(confirmed),
+		"Declined":  len(declined),
+		"Pending":   len(pending),
+		"Now":       formatKuwait(kuwaitNow()),
+	})
+}
+
 // آخر موعد للرد = يوم الزفاف ناقص 3 أيام (نهاية اليوم بتوقيت القاهرة)
 func rsvpDeadline() (time.Time, bool) {
 	s := getSettings()
@@ -1191,9 +1220,11 @@ r.SetHTMLTemplate(tmpl)
 		managerOnly.GET("/admin/api/whatsapp-status", WhatsAppStatusHandler)
 		managerOnly.POST("/admin/api/whatsapp-logout", LogoutWhatsAppHandler)
 		managerOnly.GET("/admin/api/export-excel", ExportGuestsExcel)
+		managerOnly.GET("/admin/api/export-pdf", ExportGuestsPDF)
 		managerOnly.GET("/admin/users", RenderUsersPage)
         managerOnly.POST("/admin/api/users", CreateAdminUser)
         managerOnly.DELETE("/admin/api/users/:id", DeleteAdminUser)
+        
         //use api template
         managerOnly.POST("/admin/api/broadcast-cloud-template", BroadcastCloudTemplateHandler)
 	}

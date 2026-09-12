@@ -1186,6 +1186,17 @@ r.SetHTMLTemplate(tmpl)
     r.GET("/webhook/whatsapp", CloudWebhookVerifyHandler)
     r.POST("/webhook/whatsapp", CloudWebhookReceiveHandler)
 	
+	r.GET("/contact-admin", func(c *gin.Context) {
+	phone := strings.TrimSpace(os.Getenv("WA_ADMIN_PHONE"))
+	phone = strings.ReplaceAll(phone, "+", "")
+	phone = strings.ReplaceAll(phone, " ", "")
+	phone = strings.ReplaceAll(phone, "-", "")
+	if phone == "" {
+		phone = "201061122157"
+	}
+	c.Redirect(http.StatusFound, "https://wa.me/"+phone)
+})
+
 	api := r.Group("/api")
 	{
 		api.POST("/guests", CreateGuest)

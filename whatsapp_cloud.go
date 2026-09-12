@@ -722,7 +722,7 @@ func CloudSendAlFaisalTemplate(to, guestName, couple, dateText string) error {
 	// رابط صورة مباشر (نفس صورة القالب أو ارفعها على سيرفرك)
 	//imageURL := "https://invite.cloud-ip.cc/public/uploads/invite_header.jpg"
 	// أو raw github لو بتستخدمه:
-	imageURL := "https://raw.githubusercontent.com/Yasser-Badr/images/main/al_faisal.png"
+	imageURL := "https://raw.githubusercontent.com/Yasser-Badr/images/main/invite_image.jpg"
 
 	payload := map[string]interface{}{
 		"messaging_product": "whatsapp",
@@ -880,4 +880,41 @@ func BroadcastCloudTemplateHandler(c *gin.Context) {
 		"couple":        couple,
 		"date_text":     dateText,
 	})
+}
+
+// تبعت رسالة فيها زرار لوكيشن، وبعدها زرار الإدارة (ملصوقين praktikal)
+// رسالة + زرار لوكيشن ثم زرار الإدارة (ملصوقين)
+func CloudSendLocationThenAdmin(to, body, mapsURL string) error {
+	to = cloudNormalizePhone(to)
+
+	var err error
+	if strings.TrimSpace(mapsURL) != "" {
+		err = CloudSendLocationLink(to, mapsURL, body)
+	} else {
+		err = CloudSendText(to, body)
+	}
+	if err != nil {
+		return err
+	}
+	time.Sleep(700 * time.Millisecond)
+	return CloudSendContactAdmin(to, "للتواصل مع الإدارة:")
+}
+
+// باركود + نص + زرار لوكيشن ثم زرار الإدارة
+func CloudSendQRWithLocationAndAdmin(to, qrImageURL, body, mapsURL string) error {
+	to = cloudNormalizePhone(to)
+
+	var err error
+	if strings.TrimSpace(mapsURL) != "" {
+		err = CloudSendQRWithLocation(to, qrImageURL, body, mapsURL)
+	} else if strings.TrimSpace(qrImageURL) != "" {
+		err = CloudSendImageByURL(to, qrImageURL, body)
+	} else {
+		err = CloudSendText(to, body)
+	}
+	if err != nil {
+		return err
+	}
+	time.Sleep(700 * time.Millisecond)
+	return CloudSendContactAdmin(to, "للتواصل مع الإدارة:")
 }

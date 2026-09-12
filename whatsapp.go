@@ -552,22 +552,37 @@ func processConfirmAttendance(guest *Guest) {
 	}
 
 	guest.Status = "confirmed"
-	baseURL := getAppBaseURL()
-	verifyURL := fmt.Sprintf("%s/verify/%s", baseURL, guest.Token)
-	qrFileName := fmt.Sprintf("%s.png", guest.Token)
-	qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
-	_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
-
-	if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath); err != nil {
-		fmt.Printf("❌ فشل توليد QR لـ %s: %v\n", guest.Name, err)
-		_ = CloudSendText(guest.Phone, "تم تسجيل تأكيد حضورك ✅\nحدث خطأ في إنشاء الباركود، تواصل مع المنظم.")
-		DB.Save(guest)
-		return
+	// بعد حفظ الـ QR في الداتا بيز
+	base := strings.TrimRight(getAppBaseURL(), "/")
+	qrPublicURL := base + "/public/qrcodes/" + qrFileName
+	// لو QRImageURL عندك بيتخزن كـ /public/qrcodes/...
+	if guest.QRImageURL != "" && strings.HasPrefix(guest.QRImageURL, "/") {
+		qrPublicURL = base + guest.QRImageURL
 	}
 
-	guest.QRImageURL = "/public/qrcodes/" + qrFileName
-	DB.Save(guest)
-	sendQRToGuest(guest)
+	caption := confirmCaption(guest)
+	settings := getSettings()
+	mapsURL := strings.TrimSpace(settings.MapsURL)
+
+	if cloudToken() != "" && cloudPhoneNumberID() != "" {
+		err := CloudSendQRWithLocationAndAdmin(guest.Phone, qrPublicURL, caption, mapsURL)
+		if err != nil {
+			fmt.Printf("⚠️ Cloud باركود فشل: %v\n", err)
+		} else {
+			fmt.Printf("✅ باركود + لوكيشن + إدارة → %s\n", guest.Name)
+		}
+	} else {
+		// fallback whatsmeow
+		qrBytes, _ := os.ReadFile(qrFilePath)
+		msg := caption
+		if mapsURL != "" {
+			msg += "\n\n📍 " + mapsURL
+		}
+		if wa := adminWhatsAppURL(); wa != "" {
+			msg += "\n\n💬 الإدارة: " + wa
+		}
+		_ = SendWAImage(guest.Phone, qrBytes, msg)
+	}
 }
 
 func sendQRToGuest(guest *Guest) {
@@ -603,12 +618,11 @@ func sendQRToGuest(guest *Guest) {
 	imageURL := getAppBaseURL() + guest.QRImageURL
 
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
-		if err := CloudSendQRWithLocation(guest.Phone, imageURL, caption, mapsURL); err == nil {
-			fmt.Printf("✅ باركود+موقع Cloud → %s\n", guest.Name)
-			// _ = CloudSendContactAdmin(guest.Phone, "للتواصل مع الإدارة:")
+		if err := CloudSendQRWithLocationAndAdmin(guest.Phone, imageURL, caption, mapsURL); err == nil {
+			fmt.Printf("✅ باركود + لوكيشن + إدارة → %s\n", guest.Name)
 			return
 		}
-		fmt.Printf("⚠️ Cloud QR+location: %v\n", err)
+		fmt.Printf("⚠️ Cloud QR+location+admin: %v\n", err)
 	}
 
 	if err := SendWAImage(guest.Phone, data, caption); err != nil {
@@ -619,7 +633,7 @@ func sendQRToGuest(guest *Guest) {
 	fmt.Printf("✅ باركود whatsmeow → %s\n", guest.Name)
 }
 
-func processDeclineAttendance(guest *Guest) {
+/*func processDeclineAttendance(guest *Guest) {
 	if isRSVPClosed() {
 	sendRSVPClosedWithContact(guest.Phone)
 	fmt.Printf("⏰ انتهت صلاحية الاعتذار لـ %s\n", guest.Name)
@@ -642,6 +656,39 @@ func processDeclineAttendance(guest *Guest) {
 		_ = SendWAMessage(guest.Phone, msg)
 	}
 	fmt.Printf("📝 اعتذار من %s — تم إلغاء الباركود (الدخول لم يُمسح)\n", guest.Name)
+}
+*/
+
+func processDeclineAttendance(guest *Guest) {
+	if guest == nil {
+		return
+	}
+
+	guest.Status = "declined"
+	if guest.QRImageURL != "" {
+		_ = os.Remove("." + guest.QRImageURL)
+		guest.QRImageURL = ""
+	}
+	_ = DB.Save(guest).Error
+
+	msg := declineMessage(guest)
+
+	if cloudToken() != "" && cloudPhoneNumberID() != "" {
+		if err := CloudSendContactAdmin(guest.Phone, msg); err == nil {
+			fmt.Printf("✅ اعتذار + زرار الإدارة → %s\n", guest.Name)
+			return
+		}
+	}
+
+	// fallback
+	if wa := adminWhatsAppURL(); wa != "" {
+		msg += "\n\nللتواصل مع الإدارة:\n" + wa
+	}
+	if cloudToken() != "" && cloudPhoneNumberID() != "" {
+		_ = CloudSendText(guest.Phone, msg)
+	} else {
+		_ = SendWAMessage(guest.Phone, msg)
+	}
 }
 
 func handleIncomingWA(evt interface{}) {
@@ -1022,15 +1069,13 @@ func checkAndSendReminder() {
 
 		var sendErr error
 		if cloudToken() != "" && cloudPhoneNumberID() != "" {
-			// نفضل زرار اللوكيشن لو موجود
-			if mapsURL != "" {
-				sendErr = CloudSendLocationLink(g.Phone, mapsURL, msg)
-			} else {
-				sendErr = CloudSendText(g.Phone, msg)
-			}
+			sendErr = CloudSendLocationThenAdmin(g.Phone, msg, mapsURL)
 		} else {
 			if mapsURL != "" {
 				msg += "\n\n📍 " + mapsURL
+			}
+			if wa := adminWhatsAppURL(); wa != "" {
+				msg += "\n\n💬 الإدارة: " + wa
 			}
 			sendErr = SendWAMessage(g.Phone, msg)
 		}
@@ -1115,18 +1160,18 @@ func checkAndSendTwoHourReminder() {
 		if strings.TrimSpace(g.Phone) == "" {
 			continue
 		}
-		msg := buildTwoHourReminderMessage(&g, settings)
+		
+		msg := buildReminderMessage(&g, settings)
 
 		var sendErr error
 		if cloudToken() != "" && cloudPhoneNumberID() != "" {
-			if mapsURL != "" {
-				sendErr = CloudSendLocationLink(g.Phone, mapsURL, msg)
-			} else {
-				sendErr = CloudSendText(g.Phone, msg)
-			}
+			sendErr = CloudSendLocationThenAdmin(g.Phone, msg, mapsURL)
 		} else {
 			if mapsURL != "" {
 				msg += "\n\n📍 " + mapsURL
+			}
+			if wa := adminWhatsAppURL(); wa != "" {
+				msg += "\n\n💬 الإدارة: " + wa
 			}
 			sendErr = SendWAMessage(g.Phone, msg)
 		}

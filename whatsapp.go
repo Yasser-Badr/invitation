@@ -540,11 +540,11 @@ func sendRSVPClosedWithContact(phone string) {
 
 func processConfirmAttendance(guest *Guest) {
 	if isRSVPClosed() {
-	sendRSVPClosedWithContact(guest.Phone)
-	fmt.Printf("⏰ انتهت صلاحية التأكيد لـ %s\n", guest.Name)
-	return
-}
-	
+		sendRSVPClosedWithContact(guest.Phone)
+		fmt.Printf("⏰ انتهت صلاحية التأكيد لـ %s\n", guest.Name)
+		return
+	}
+
 	// منع التكرار
 	if guest.Status == "confirmed" && guest.QRImageURL != "" {
 		fmt.Printf("ℹ️ %s مؤكد مسبقاً — تجاهل تكرار التأكيد\n", guest.Name)
@@ -552,37 +552,30 @@ func processConfirmAttendance(guest *Guest) {
 	}
 
 	guest.Status = "confirmed"
-	// بعد حفظ الـ QR في الداتا بيز
-	base := strings.TrimRight(getAppBaseURL(), "/")
-	qrPublicURL := base + "/public/qrcodes/" + qrFileName
-	// لو QRImageURL عندك بيتخزن كـ /public/qrcodes/...
-	if guest.QRImageURL != "" && strings.HasPrefix(guest.QRImageURL, "/") {
-		qrPublicURL = base + guest.QRImageURL
+
+	// توليد الباركود
+	baseURL := getAppBaseURL()
+	verifyURL := fmt.Sprintf("%s/verify/%s", baseURL, guest.Token)
+	qrFileName := fmt.Sprintf("%s.png", guest.Token)
+	qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
+	_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
+
+	if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath); err != nil {
+		fmt.Printf("❌ فشل توليد الباركود لـ %s: %v\n", guest.Name, err)
+		_ = CloudSendText(guest.Phone, "تم تأكيد حضورك ✅\nتعذر إنشاء الباركود حالياً.")
+		DB.Save(guest)
+		return
 	}
 
-	caption := confirmCaption(guest)
-	settings := getSettings()
-	mapsURL := strings.TrimSpace(settings.MapsURL)
-
-	if cloudToken() != "" && cloudPhoneNumberID() != "" {
-		err := CloudSendQRWithLocationAndAdmin(guest.Phone, qrPublicURL, caption, mapsURL)
-		if err != nil {
-			fmt.Printf("⚠️ Cloud باركود فشل: %v\n", err)
-		} else {
-			fmt.Printf("✅ باركود + لوكيشن + إدارة → %s\n", guest.Name)
-		}
-	} else {
-		// fallback whatsmeow
-		qrBytes, _ := os.ReadFile(qrFilePath)
-		msg := caption
-		if mapsURL != "" {
-			msg += "\n\n📍 " + mapsURL
-		}
-		if wa := adminWhatsAppURL(); wa != "" {
-			msg += "\n\n💬 الإدارة: " + wa
-		}
-		_ = SendWAImage(guest.Phone, qrBytes, msg)
+	guest.QRImageURL = "/public/qrcodes/" + qrFileName
+	if err := DB.Save(guest).Error; err != nil {
+		fmt.Printf("❌ فشل حفظ الضيف %s: %v\n", guest.Name, err)
+		return
 	}
+
+	// إرسال الباركود + لوكيشن + إدارة
+	sendQRToGuest(guest)
+	fmt.Printf("✅ تم تأكيد وإرسال الباركود لـ %s\n", guest.Name)
 }
 
 func sendQRToGuest(guest *Guest) {
@@ -1161,8 +1154,8 @@ func checkAndSendTwoHourReminder() {
 			continue
 		}
 		
-		msg := buildReminderMessage(&g, settings)
-
+        msg := buildTwoHourReminderMessage(&g, settings)
+        
 		var sendErr error
 		if cloudToken() != "" && cloudPhoneNumberID() != "" {
 			sendErr = CloudSendLocationThenAdmin(g.Phone, msg, mapsURL)

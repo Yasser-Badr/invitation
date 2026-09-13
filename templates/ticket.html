@@ -226,6 +226,17 @@
                 </div>
 
                 <!-- الباركود -->
+                {{ if .QRImageURL }}
+                <div class="qr-container">
+                    <img id="qrImg" crossorigin="anonymous" src="{{ .QRImageURL }}" alt="QR Code">
+                </div>
+                <div class="qr-text">
+                    <p>الرجاء إظهار الباركود عند الدخول</p>
+                </div>
+                {{ else }}
+                <p style="color:#b00;margin-bottom:16px;">لم يتم توليد الباركود بعد</p>
+                {{ end }}
+                
                                 <!-- الأزرار -->
                 <div class="actions">
                     <a class="btn" href="{{ .Settings.MapsURL }}" target="_blank" rel="noopener">

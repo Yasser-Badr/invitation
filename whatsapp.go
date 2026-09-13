@@ -578,52 +578,51 @@ func processConfirmAttendance(guest *Guest) {
 	fmt.Printf("✅ تم تأكيد وإرسال الباركود لـ %s\n", guest.Name)
 }
 
-func sendQRToGuest(guest *Guest) {
-	path := "." + guest.QRImageURL
-	data, err := os.ReadFile(path)
-	if err != nil {
-		msg := "تم تأكيد حضورك ✅\nتعذر إرسال الباركود حالياً."
-		_ = CloudSendText(guest.Phone, msg)
-		_ = SendWAMessage(guest.Phone, msg)
+func sendQRToGuest(g *Guest) {
+	if g == nil || strings.TrimSpace(g.Phone) == "" {
+		return
+	}
+	if strings.TrimSpace(g.QRImageURL) == "" {
+		fmt.Printf("⚠️ لا يوجد باركود لـ %s\n", g.Name)
 		return
 	}
 
-/*	companionsLine := "بدون مرافقين"
-	if guest.Companions > 0 {
-		companionsLine = fmt.Sprintf("%d", guest.Companions)
-	}*/
-	
-	caption := confirmCaption(guest)
-
-	/*caption := fmt.Sprintf(
-		"يا هلا بك يا %s، تم تأكيد حضورك بنجاح.\n"+
-		"تشرفنا فيج، ووجودج هو اللي يكمل فرحتنا* 🤍✨\n\n"+
-			"👥 | عدد المرافقين: %s\n\n"+
-			"🎫 | الرجاء إظهار الباركود عند الدخول \n\n"+
-			"يسعدنا تشريفكم 💚✨\n",
-		guest.Name,
-		companionsLine,
-	)*/
-	
-
+	caption := confirmCaption(g)
 	settings := getSettings()
 	mapsURL := strings.TrimSpace(settings.MapsURL)
-	imageURL := getAppBaseURL() + guest.QRImageURL
 
+	// رابط عام لصورة الباركود
+	base := strings.TrimRight(getAppBaseURL(), "/")
+	qrURL := base + g.QRImageURL // مثال: https://invite.cloud-ip.cc/public/qrcodes/xxx.png
+
+	// 1) Cloud API (مفضّل — زر لوكيشن + زر إدارة)
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
-		if err := CloudSendQRWithLocationAndAdmin(guest.Phone, imageURL, caption, mapsURL); err == nil {
-			fmt.Printf("✅ باركود + لوكيشن + إدارة → %s\n", guest.Name)
+		err := CloudSendQRWithLocationAndAdmin(g.Phone, qrURL, caption, mapsURL)
+		if err == nil {
+			fmt.Printf("✅ باركود + أزرار Cloud → %s\n", g.Name)
 			return
 		}
-		fmt.Printf("⚠️ Cloud QR+location+admin: %v\n", err)
+		fmt.Printf("⚠️ Cloud باركود فشل: %v — محاولة whatsmeow\n", err)
 	}
 
-	if err := SendWAImage(guest.Phone, data, caption); err != nil {
-		_ = CloudSendText(guest.Phone, caption)
-		_ = SendWAMessage(guest.Phone, caption+"\n(تعذر إرسال صورة الباركود)")
-		return
+	// 2) whatsmeow (صورة + نص، ثم نص فيه لينك الإدارة)
+	if WAClient != nil && WAClient.IsConnected() {
+		path := "." + g.QRImageURL
+		data, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Printf("❌ قراءة ملف الباركود: %v\n", err)
+			return
+		}
+		if err := SendWAImage(g.Phone, data, caption); err != nil {
+			fmt.Printf("❌ إرسال باركود whatsmeow: %v\n", err)
+			return
+		}
+		time.Sleep(700 * time.Millisecond)
+		if wa := adminWhatsAppURL(); wa != "" {
+			_ = SendWAMessage(g.Phone, "للتواصل مع الإدارة:\n"+wa)
+		}
+		fmt.Printf("✅ باركود whatsmeow → %s\n", g.Name)
 	}
-	fmt.Printf("✅ باركود whatsmeow → %s\n", guest.Name)
 }
 
 /*func processDeclineAttendance(guest *Guest) {
@@ -656,32 +655,26 @@ func processDeclineAttendance(guest *Guest) {
 	if guest == nil {
 		return
 	}
-
 	guest.Status = "declined"
 	if guest.QRImageURL != "" {
 		_ = os.Remove("." + guest.QRImageURL)
 		guest.QRImageURL = ""
 	}
-	_ = DB.Save(guest).Error
+	_ = DB.Save(guest)
 
 	msg := declineMessage(guest)
 
 	if cloudToken() != "" && cloudPhoneNumberID() != "" {
 		if err := CloudSendContactAdmin(guest.Phone, msg); err == nil {
-			fmt.Printf("✅ اعتذار + زرار الإدارة → %s\n", guest.Name)
+			fmt.Printf("✅ اعتذار + زر إدارة → %s\n", guest.Name)
 			return
 		}
 	}
 
-	// fallback
 	if wa := adminWhatsAppURL(); wa != "" {
 		msg += "\n\nللتواصل مع الإدارة:\n" + wa
 	}
-	if cloudToken() != "" && cloudPhoneNumberID() != "" {
-		_ = CloudSendText(guest.Phone, msg)
-	} else {
-		_ = SendWAMessage(guest.Phone, msg)
-	}
+	_ = SendWAMessage(guest.Phone, msg)
 }
 
 func handleIncomingWA(evt interface{}) {

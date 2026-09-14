@@ -1188,6 +1188,8 @@ template.Must(tmpl.ParseGlob("templates/grad/*.html"))
 r.SetHTMLTemplate(tmpl)
 	r.Static("/public", "./public")
 
+	r.Static("/images", "./templates/images") // هذا هو السطر الجديد الذي يجب إضافته
+
 	// =====================================
 	// المسارات العامة (بدون حماية)
 	// =====================================

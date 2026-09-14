@@ -324,6 +324,7 @@
         <th>الهاتف</th>
         <th>المرافقين</th>
         <th>الحالة</th>
+        <th>رسالة التأكيد</th>
         <th>الدخول</th>
         <th>وقت الدخول</th>
         {{ if eq $.Role "manager" }}
@@ -348,6 +349,15 @@
         {{ if eq .Status "declined" }}<span class="status status-declined">معتذر</span>{{ end }}
     </td>
     <td>
+      {{ if $g.ConfirmSent }}
+        <span style="color:#155724;font-weight:600;">✓ اتبعت</span>
+      {{ else if eq $g.Status "confirmed" }}
+        <span style="color:#856404;font-weight:600;">⚠ لم تُرسل</span>
+      {{ else }}
+        —
+      {{ end }}
+    </td>
+    <td>
         {{ if .CheckedIn }}
             <span class="status status-confirmed">تم الدخول</span>
         {{ else }}
@@ -359,6 +369,17 @@
     </td>
     {{ if eq $.Role "manager" }}
     <td>
+        {{ if eq .Role "manager" }}
+          {{ if eq $g.Status "confirmed" }}
+          <button type="button"
+                  class="btn btn-sm"
+                  style="background:#0d6efd;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;"
+                  onclick="resendQR({{ $g.ID }}, this)"
+                  title="إعادة إرسال الباركود">
+            🎫 إعادة ارسال باركود
+          </button>
+          {{ end }}
+        {{ end }}
         <button class="btn btn-primary btn-sm"
             data-id="{{.ID}}"
             data-name="{{.Name}}"
@@ -1152,6 +1173,31 @@ function sendAlFaisalTemplate() {
 </script>
 
 <script>
+    async function resendQR(id, btn) {
+      if (!confirm('إعادة إرسال الباركود لهذا المدعو؟')) return;
+    
+      const oldText = btn.innerText;
+      btn.disabled = true;
+      btn.innerText = 'جاري الإرسال...';
+    
+      try {
+        const res = await fetch('/admin/api/guests/' + id + '/resend-qr', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' }
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'فشل الإرسال');
+          return;
+        }
+        alert('✅ ' + (data.message || 'تم الإرسال') + '\n' + (data.name || ''));
+      } catch (e) {
+        alert('خطأ في الاتصال بالسيرفر');
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = oldText;
+      }
 // تحديث الصفحة كل 90 ثانية عشان الإحصائيات تفضل حديثة
 //setTimeout(function(){ location.reload(); }, 90000);
 </script>

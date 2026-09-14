@@ -33,6 +33,8 @@ type Guest struct {
 	CheckedInAt *time.Time // وقت الدخول الفعلي (null لو لسه مدخلش)
     InviteSent    bool       `gorm:"default:false"` // ← جديد
 	InviteSentAt  *time.Time // ← جديد
+	ConfirmSent   bool       `gorm:"default:false"` // هل رسالة التأكيد+الباركود اتبعتت؟
+    ConfirmSentAt *time.Time
 }
 
 type InvitationSettings struct {
@@ -247,7 +249,19 @@ func UpdateRSVP(c *gin.Context) {
 
 	guest.Status = input.Status
 	DB.Save(&guest)
-
+    if input.Status == "confirmed" && guest.QRImageURL != "" && !guest.ConfirmSent {
+    	go func(g Guest) {
+    		if err := sendQRToGuest(&g); err == nil {
+    			now := kuwaitNow()
+    			_ = DB.Model(&Guest{}).Where("id = ?", g.ID).Updates(map[string]interface{}{
+    				"confirm_sent":    true,
+    				"confirm_sent_at": now,
+    			})
+    		} else {
+    			fmt.Printf("⚠️ RSVP تأكيد بدون إرسال باركود لـ %s: %v\n", g.Name, err)
+    		}
+    	}(guest)
+    }
 	c.JSON(http.StatusOK, gin.H{"message": "تم تحديث حالة الحضور"})
 }
 
@@ -470,11 +484,17 @@ func UpdateGuestAdmin(c *gin.Context) {
 	
 	
 // ابعت الباركود فقط لو الحالة بقت confirmed وفيه QR
-    if newStatus == "confirmed" && guest.QRImageURL != "" {
-        sendQRToGuest(&guest)
-        
-    }
-
+    if newStatus == "confirmed" && guest.QRImageURL != "" && !guest.ConfirmSent {
+	if err := sendQRToGuest(&guest); err == nil {
+		now := kuwaitNow()
+		_ = DB.Model(&guest).Updates(map[string]interface{}{
+			"confirm_sent":    true,
+			"confirm_sent_at": now,
+		})
+	} else {
+		fmt.Printf("⚠️ فشل إرسال تأكيد من الأدمن لـ %s: %v\n", guest.Name, err)
+	}
+}
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "تم التعديل بنجاح",
 		"status_changed": oldStatus != newStatus,
@@ -1225,6 +1245,8 @@ r.SetHTMLTemplate(tmpl)
 		managerOnly.POST("/admin/api/guests/bulk-delete", DeleteGuestsBulk)
 		managerOnly.DELETE("/admin/api/guests/:id", DeleteGuestAdmin)
 		managerOnly.PUT("/admin/api/guests/:id", UpdateGuestAdmin)
+	    // اعادة ارسال الباركود
+	    managerOnly.POST("/admin/api/guests/:id/resend-qr", ResendQRHandler)
 		managerOnly.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler)
 		managerOnly.POST("/admin/api/broadcast-cloud", BroadcastCloudHandler)
 		managerOnly.POST("/admin/api/cloud-test-send", CloudTestSendHandler)

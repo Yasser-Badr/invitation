@@ -539,52 +539,74 @@ func sendRSVPClosedWithContact(phone string) {
 }
 
 func processConfirmAttendance(guest *Guest) {
+	if guest == nil {
+		return
+	}
+
 	if isRSVPClosed() {
 		sendRSVPClosedWithContact(guest.Phone)
 		fmt.Printf("⏰ انتهت صلاحية التأكيد لـ %s\n", guest.Name)
 		return
 	}
 
-	// منع التكرار
-	if guest.Status == "confirmed" && guest.QRImageURL != "" {
-		fmt.Printf("ℹ️ %s مؤكد مسبقاً — تجاهل تكرار التأكيد\n", guest.Name)
+	// 1) ثبّت الحالة + ولّد الباركود لو مش موجود
+	needSave := false
+	if guest.Status != "confirmed" {
+		guest.Status = "confirmed"
+		needSave = true
+	}
+
+	if strings.TrimSpace(guest.QRImageURL) == "" {
+		baseURL := getAppBaseURL()
+		verifyURL := fmt.Sprintf("%s/verify/%s", baseURL, guest.Token)
+		qrFileName := fmt.Sprintf("%s.png", guest.Token)
+		qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
+		_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
+
+		if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath); err != nil {
+			fmt.Printf("❌ فشل توليد QR لـ %s: %v\n", guest.Name, err)
+			return
+		}
+		guest.QRImageURL = "/public/qrcodes/" + qrFileName
+		needSave = true
+	}
+
+	if needSave {
+		if err := DB.Save(guest).Error; err != nil {
+			fmt.Printf("❌ فشل حفظ التأكيد لـ %s: %v\n", guest.Name, err)
+			return
+		}
+	}
+
+	// 2) لو الرسالة اتبعتت قبل كده بنجاح → متبعتش تاني
+	if guest.ConfirmSent {
+		fmt.Printf("ℹ️ %s: رسالة التأكيد اتبعتت قبل كده — تجاهل\n", guest.Name)
 		return
 	}
 
-	guest.Status = "confirmed"
-
-	// توليد الباركود
-	baseURL := getAppBaseURL()
-	verifyURL := fmt.Sprintf("%s/verify/%s", baseURL, guest.Token)
-	qrFileName := fmt.Sprintf("%s.png", guest.Token)
-	qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
-	_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
-
-	if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath); err != nil {
-		fmt.Printf("❌ فشل توليد الباركود لـ %s: %v\n", guest.Name, err)
-		_ = CloudSendText(guest.Phone, "تم تأكيد حضورك ✅\nتعذر إنشاء الباركود حالياً.")
-		DB.Save(guest)
+	// 3) حاول تبعت (حتى لو كان confirmed من قبل وفشل الإرسال)
+	if err := sendQRToGuest(guest); err != nil {
+		fmt.Printf("❌ فشل إرسال تأكيد/باركود لـ %s: %v\n", guest.Name, err)
 		return
 	}
 
-	guest.QRImageURL = "/public/qrcodes/" + qrFileName
-	if err := DB.Save(guest).Error; err != nil {
-		fmt.Printf("❌ فشل حفظ الضيف %s: %v\n", guest.Name, err)
-		return
-	}
-
-	// إرسال الباركود + لوكيشن + إدارة
-	sendQRToGuest(guest)
-	fmt.Printf("✅ تم تأكيد وإرسال الباركود لـ %s\n", guest.Name)
+	now := kuwaitNow()
+	_ = DB.Model(guest).Updates(map[string]interface{}{
+		"confirm_sent":    true,
+		"confirm_sent_at": now,
+	})
+	guest.ConfirmSent = true
+	guest.ConfirmSentAt = &now
+	fmt.Printf("✅ تأكيد + باركود اتبعت لـ %s\n", guest.Name)
 }
 
-func sendQRToGuest(g *Guest) {
+func sendQRToGuest(g *Guest) error {
 	if g == nil || strings.TrimSpace(g.Phone) == "" {
-		return
+		return fmt.Errorf("ضيف أو رقم فارغ")
 	}
 	if strings.TrimSpace(g.QRImageURL) == "" {
 		fmt.Printf("⚠️ لا يوجد باركود لـ %s\n", g.Name)
-		return
+		return fmt.Errorf("لا يوجد باركود")
 	}
 
 	caption := confirmCaption(g)
@@ -600,7 +622,7 @@ func sendQRToGuest(g *Guest) {
 		err := CloudSendQRWithLocationAndAdmin(g.Phone, qrURL, caption, mapsURL)
 		if err == nil {
 			fmt.Printf("✅ باركود + أزرار Cloud → %s\n", g.Name)
-			return
+			return nil
 		}
 		fmt.Printf("⚠️ Cloud باركود فشل: %v — محاولة whatsmeow\n", err)
 	}
@@ -611,18 +633,21 @@ func sendQRToGuest(g *Guest) {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Printf("❌ قراءة ملف الباركود: %v\n", err)
-			return
+			return fmt.Errorf("قراءة ملف الباركود: %v", err)
 		}
 		if err := SendWAImage(g.Phone, data, caption); err != nil {
 			fmt.Printf("❌ إرسال باركود whatsmeow: %v\n", err)
-			return
+			return err
 		}
 		time.Sleep(700 * time.Millisecond)
 		if wa := adminWhatsAppURL(); wa != "" {
 			_ = SendWAMessage(g.Phone, "للتواصل مع الإدارة:\n"+wa)
 		}
 		fmt.Printf("✅ باركود whatsmeow → %s\n", g.Name)
+		return nil
 	}
+
+	return fmt.Errorf("لا يوجد قناة إرسال متاحة (Cloud/whatsmeow)")
 }
 
 /*func processDeclineAttendance(guest *Guest) {
@@ -660,6 +685,8 @@ func processDeclineAttendance(guest *Guest) {
 		_ = os.Remove("." + guest.QRImageURL)
 		guest.QRImageURL = ""
 	}
+	guest.ConfirmSent = false
+	guest.ConfirmSentAt = nil
 	_ = DB.Save(guest)
 
 	msg := declineMessage(guest)
@@ -1346,4 +1373,51 @@ func buildReminderMessage(g *Guest, s InvitationSettings) string {
 			"نتشرف بوجودك ويارب تكون فرحة مكتملة بوجودكم 💚",
 		g.Name, couple, dateText, locationName,
 	)
+}
+
+// إعادة إرسال الباركود + رسالة التأكيد (من الداشبورد)
+func ResendQRHandler(c *gin.Context) {
+	id := c.Param("id")
+	var guest Guest
+	if err := DB.First(&guest, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "الضيف غير موجود"})
+		return
+	}
+
+	if guest.Status != "confirmed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "الضيف غير مؤكد حضوره"})
+		return
+	}
+
+	// ولّد الباركود لو مش موجود
+	if strings.TrimSpace(guest.QRImageURL) == "" {
+		baseURL := getAppBaseURL()
+		verifyURL := fmt.Sprintf("%s/verify/%s", baseURL, guest.Token)
+		qrFileName := fmt.Sprintf("%s.png", guest.Token)
+		qrFilePath := fmt.Sprintf("./public/qrcodes/%s", qrFileName)
+		_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
+		if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, qrFilePath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل توليد الباركود"})
+			return
+		}
+		guest.QRImageURL = "/public/qrcodes/" + qrFileName
+		_ = DB.Save(&guest)
+	}
+
+	if err := sendQRToGuest(&guest); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل الإرسال: " + err.Error()})
+		return
+	}
+
+	now := kuwaitNow()
+	_ = DB.Model(&guest).Updates(map[string]interface{}{
+		"confirm_sent":    true,
+		"confirm_sent_at": now,
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "تم إعادة إرسال الباركود بنجاح",
+		"name":    guest.Name,
+		"phone":   guest.Phone,
+	})
 }

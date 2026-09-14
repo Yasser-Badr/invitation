@@ -1171,31 +1171,35 @@ function sendAlFaisalTemplate() {
 </script>
 
 <script>
-    async function resendQR(id, btn) {
-      if (!confirm('إعادة إرسال الباركود لهذا المدعو؟')) return;
-    
-      const oldText = btn.innerText;
-      btn.disabled = true;
-      btn.innerText = 'جاري الإرسال...';
-    
-      try {
-        const res = await fetch('/admin/api/guests/' + id + '/resend-qr', {
-          method: 'POST',
-          headers: { 'Accept': 'application/json' }
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.error || 'فشل الإرسال');
-          return;
-        }
-        alert('✅ ' + (data.message || 'تم الإرسال') + '\n' + (data.name || ''));
-      } catch (e) {
-        alert('خطأ في الاتصال بالسيرفر');
-        console.error(e);
-      } finally {
-        btn.disabled = false;
-        btn.innerText = oldText;
-      }
+async function resendQR(id, btn) {
+  if (!confirm('إعادة إرسال الباركود لهذا المدعو؟')) return;
+
+  var oldText = btn.innerText;
+  btn.disabled = true;
+  btn.innerText = 'جاري الإرسال...';
+
+  try {
+    var res = await fetch('/admin/api/guests/' + id + '/resend-qr', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin'
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok) {
+      alert(data.error || ('فشل الإرسال — كود ' + res.status));
+      return;
+    }
+    alert('✅ ' + (data.message || 'تم الإرسال') + '\n' + (data.name || ''));
+    // حدّث حالة "رسالة التأكيد" من غير ريفرش كامل (اختياري)
+    location.reload();
+  } catch (e) {
+    alert('خطأ في الاتصال بالسيرفر');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = oldText;
+  }
+}
 // تحديث الصفحة كل 90 ثانية عشان الإحصائيات تفضل حديثة
 //setTimeout(function(){ location.reload(); }, 90000);
 </script>

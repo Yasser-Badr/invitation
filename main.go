@@ -13,7 +13,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/skip2/go-qrcode"
-	"gorm.io/driver/sqlite"
+	//"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"strconv"
     "strings"
@@ -72,25 +73,42 @@ type AdminUser struct {
 var DB *gorm.DB
 
 func ConnectDB() {
-	database, err := gorm.Open(sqlite.Open("wedding_test.db"), &gorm.Config{})
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Kuwait",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PORT"),
+	)
+
+	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("❌ فشل الاتصال بقاعدة البيانات:", err)
 	}
 
-    err = database.AutoMigrate(&Guest{}, &InvitationSettings{}, &AdminUser{})
+	err = database.AutoMigrate(&Guest{}, &InvitationSettings{}, &AdminUser{})
 	if err != nil {
 		log.Fatal("❌ فشل عمل Migration:", err)
 	}
+
+	// Indexes
+	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_status ON guests(status)")
+	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_invite_sent ON guests(invite_sent)")
+	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_confirm_sent ON guests(confirm_sent)")
+	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_checked_in ON guests(checked_in)")
+
 	DB = database
-    
-    var userCount int64
-    DB.Model(&AdminUser{}).Count(&userCount)
-    if userCount == 0 {
-	    DB.Create(&AdminUser{Username: "manager", Password: "Faisal@2026", Role: "manager", Name: "مدير النظام"})
-	    DB.Create(&AdminUser{Username: "scan", Password: "Scan@123", Role: "scanner", Name: "موظف المسح"})
-	    DB.Create(&AdminUser{Username: "reception", Password: "Rec@123", Role: "reception", Name: "الاستقبال"})
-    }
-	// إنشاء إعدادات افتراضية لو مفيش
+
+	// إنشاء المستخدمين الافتراضيين لو مفيش
+	var userCount int64
+	DB.Model(&AdminUser{}).Count(&userCount)
+	if userCount == 0 {
+		DB.Create(&AdminUser{Username: "manager", Password: "Faisal@2026", Role: "manager", Name: "مدير النظام"})
+		DB.Create(&AdminUser{Username: "scan", Password: "Scan@123", Role: "scanner", Name: "موظف المسح"})
+		DB.Create(&AdminUser{Username: "reception", Password: "Rec@123", Role: "reception", Name: "الاستقبال"})
+	}
+
+	// إنشاء إعدادات افتراضية
 	var count int64
 	DB.Model(&InvitationSettings{}).Count(&count)
 	if count == 0 {
@@ -106,10 +124,6 @@ func ConnectDB() {
 			FooterQuote:     "وبحضوركم يتم لنا الفرح والسرور",
 			PrimaryColor:    "#6b7045",
 			SecondaryColor:  "#9b705d",
-			LogoURL:         "",
-            BackgroundURL:   "",
-            IconLocationURL: "",
-            IconDateURL:     "",
 		})
 	}
 }

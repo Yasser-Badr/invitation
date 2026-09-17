@@ -3,8 +3,10 @@ package main
 import (
 	"log"
 	"time"
+	"os"
 
-	"gorm.io/driver/sqlite"
+	//"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -45,10 +47,19 @@ type GradSettings struct {
 }
 
 func ConnectGradDB() {
-	database, err := gorm.Open(sqlite.Open("graduation.db"), &gorm.Config{})
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Kuwait",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("GRAD_DB_NAME"),
+		os.Getenv("DB_PORT"),
+	)
+
+	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("❌ فشل الاتصال بقاعدة بيانات التخرج:", err)
 	}
+
 	if err := database.AutoMigrate(&GradGuest{}, &GradSettings{}); err != nil {
 		log.Fatal("❌ فشل Migration التخرج:", err)
 	}
@@ -58,14 +69,12 @@ func ConnectGradDB() {
 	GradDB.Model(&GradSettings{}).Count(&count)
 	if count == 0 {
 		GradDB.Create(&GradSettings{
-			EventTitle:    "دعوة",
-			EventSubtitle: "لخريجي وخريجات جامعة جدة لعام 2026",
-			MainLine:      "لحضور حفل التخرج",
-			SubLine:       "وذلك بتسجيل الحضور من خلال الباركود",
-			DateText:      "",
-			LocationName:  "",
-			FooterNote:    "للاستفسار: طلاب Dar@uj.edu.sa | طالبات darg-feedback@uj.edu.sa",
-			PrimaryColor:  "#1a365d",
+			EventTitle:     "دعوة",
+			EventSubtitle:  "لخريجي وخريجات جامعة جدة لعام 2026",
+			MainLine:       "لحضور حفل التخرج",
+			SubLine:        "وذلك بتسجيل الحضور من خلال الباركود",
+			FooterNote:     "للاستفسار: طلاب Dar@uj.edu.sa | طالبات darg-feedback@uj.edu.sa",
+			PrimaryColor:   "#1a365d",
 			SecondaryColor: "#ffffff",
 		})
 	}

@@ -1,34 +1,27 @@
-# المرحلة الأولى: بناء المشروع (Build Stage)
-FROM golang:1.26-alpine AS builder
+# المرحلة الأولى: بناء المشروع
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# تحميل الملفات الأساسية
 COPY go.mod go.sum ./
 RUN go mod download
 
-# نسخ باقي ملفات المشروع
 COPY . .
 
-# بناء التطبيق كملف تنفيذى (Binary)
+# تأكد إن مجلد public موجود حتى لو فاضي
+RUN mkdir -p public
+
 RUN CGO_ENABLED=0 GOOS=linux go build -o wedding-app .
 
-# المرحلة الثانية: التشغيل النهائي (Runtime Stage)
+# المرحلة الثانية: التشغيل
 FROM alpine:latest
 
 WORKDIR /app
 
-# نسخ الملف التنفيذي
 COPY --from=builder /app/wedding-app .
-
-# نسخ القوالب
 COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/public ./public
 
-# إنشاء مجلد public لو مش موجود + نسخه بأمان
-RUN mkdir -p ./public
-COPY --from=builder /app/public* ./public/ 2>/dev/null || true
-
-# Cloud Run / المنفذ
 ENV PORT=8080
 EXPOSE 8080
 

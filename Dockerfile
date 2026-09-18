@@ -18,14 +18,18 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# نسخ الملف التنفيذي والمجلدات الهامة (مثل templates و public) من مرحلة البناء
+# نسخ الملف التنفيذي
 COPY --from=builder /app/wedding-app .
-COPY --from=builder /app/templates ./templates
-COPY --from=builder /app/public ./public
 
-# Cloud Run يحدد المنفذ عبر متغير البيئة PORT (الافتراضي 8080)
+# نسخ القوالب
+COPY --from=builder /app/templates ./templates
+
+# إنشاء مجلد public لو مش موجود + نسخه بأمان
+RUN mkdir -p ./public
+COPY --from=builder /app/public* ./public/ 2>/dev/null || true
+
+# Cloud Run / المنفذ
 ENV PORT=8080
 EXPOSE 8080
 
-# تشغيل التطبيق
 CMD ["./wedding-app"]

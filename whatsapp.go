@@ -595,8 +595,7 @@ func processConfirmAttendance(guest *Guest) {
 		"confirm_sent":    true,
 		"confirm_sent_at": now,
 	})
-	guest.ConfirmSent = true
-	guest.ConfirmSentAt = &now
+	
 	fmt.Printf("✅ تأكيد + باركود اتبعت لـ %s\n", guest.Name)
 }
 
@@ -650,31 +649,6 @@ func sendQRToGuest(g *Guest) error {
 	return fmt.Errorf("لا يوجد قناة إرسال متاحة (Cloud/whatsmeow)")
 }
 
-/*func processDeclineAttendance(guest *Guest) {
-	if isRSVPClosed() {
-	sendRSVPClosedWithContact(guest.Phone)
-	fmt.Printf("⏰ انتهت صلاحية الاعتذار لـ %s\n", guest.Name)
-	return
-}
-	
-	if guest.QRImageURL != "" {
-		_ = os.Remove("." + guest.QRImageURL)
-		guest.QRImageURL = ""
-	}
-	guest.Status = "declined"
-	// لا تغيّر CheckedIn ولا CheckedInAt
-	DB.Save(guest)
-	
-	msg := declineMessage(guest)
-	
-	if cloudToken() != "" && cloudPhoneNumberID() != "" {
-		_ = CloudSendText(guest.Phone, msg)
-	} else {
-		_ = SendWAMessage(guest.Phone, msg)
-	}
-	fmt.Printf("📝 اعتذار من %s — تم إلغاء الباركود (الدخول لم يُمسح)\n", guest.Name)
-}
-*/
 
 func processDeclineAttendance(guest *Guest) {
 	if guest == nil {
@@ -1419,5 +1393,45 @@ func ResendQRHandler(c *gin.Context) {
 		"message": "تم إعادة إرسال الباركود بنجاح",
 		"name":    guest.Name,
 		"phone":   guest.Phone,
+	})
+}
+
+func ResendPendingQRHandler(c *gin.Context) {
+	var guests []Guest
+	DB.Where("status = ? AND confirm_sent = ?", "confirmed", false).Find(&guests)
+	if len(guests) == 0 {
+		c.JSON(http.StatusOK, gin.H{"message": "لا يوجد مؤكدين بحاجة لإعادة إرسال", "count": 0})
+		return
+	}
+
+	ok, fail := 0, 0
+	for i := range guests {
+		g := &guests[i]
+		if strings.TrimSpace(g.QRImageURL) == "" {
+			baseURL := getAppBaseURL()
+			verifyURL := fmt.Sprintf("%s/verify/%s", baseURL, g.Token)
+			name := fmt.Sprintf("%s.png", g.Token)
+			path := "./public/qrcodes/" + name
+			_ = os.MkdirAll("./public/qrcodes", os.ModePerm)
+			if err := qrcode.WriteFile(verifyURL, qrcode.Medium, 256, path); err == nil {
+				g.QRImageURL = "/public/qrcodes/" + name
+				_ = DB.Save(g)
+			}
+		}
+		if err := sendQRToGuest(g); err != nil {
+			fail++
+			fmt.Printf("❌ إعادة باركود %s: %v\n", g.Name, err)
+		} else {
+			now := kuwaitNow()
+			_ = DB.Model(g).Updates(map[string]interface{}{
+				"confirm_sent": true, "confirm_sent_at": now,
+			})
+			ok++
+		}
+		time.Sleep(1200 * time.Millisecond)
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("إعادة إرسال: %d نجح، %d فشل", ok, fail),
+		"success": ok, "fail": fail,
 	})
 }

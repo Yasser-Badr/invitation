@@ -9,12 +9,12 @@ import (
 	"time"
 	"path/filepath"
 	"github.com/joho/godotenv"
+	"gorm.io/driver/postgres"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/skip2/go-qrcode"
-	//"gorm.io/driver/sqlite"
-	"gorm.io/driver/postgres"
+//	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"strconv"
     "strings"
@@ -74,12 +74,12 @@ var DB *gorm.DB
 
 func ConnectDB() {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-	os.Getenv("DB_HOST"),
-	os.Getenv("DB_USER"),
-	os.Getenv("DB_PASSWORD"),
-	os.Getenv("DB_NAME"),
-	os.Getenv("DB_PORT"),
-)
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PORT"),
+	)
 
 	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -90,14 +90,14 @@ func ConnectDB() {
 	if err != nil {
 		log.Fatal("❌ فشل عمل Migration:", err)
 	}
-
+	
+	DB = database
 	// Indexes
 	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_status ON guests(status)")
 	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_invite_sent ON guests(invite_sent)")
 	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_confirm_sent ON guests(confirm_sent)")
 	_ = database.Exec("CREATE INDEX IF NOT EXISTS idx_guests_checked_in ON guests(checked_in)")
 
-	DB = database
 
 	// إنشاء المستخدمين الافتراضيين لو مفيش
 	var userCount int64
@@ -626,6 +626,32 @@ func APIVerify(c *gin.Context) {
 
 	// ===== أول سكان ناجح =====
 	now := kuwaitNow()
+	res := DB.Model(&Guest{}).
+		Where("id = ? AND checked_in = ?", guest.ID, false).
+		Updates(map[string]interface{}{
+			"checked_in":    true,
+			"checked_in_at": now,
+		})
+	if res.RowsAffected == 0 {
+		// اتسجل قبل كده
+		checkedAt := ""
+		if guest.CheckedInAt != nil {
+			checkedAt = formatKuwait(*guest.CheckedInAt)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true, "already_checked_in": true,
+			"name": guest.Name, "phone": guest.Phone,
+			"companions": guest.Companions, "checked_in_at": checkedAt,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true, "already_checked_in": false,
+		"name": guest.Name, "phone": guest.Phone,
+		"companions": guest.Companions,
+		"checked_in_at": formatKuwait(now),
+	})
+	/*now := kuwaitNow()
 	guest.CheckedIn = true
 	guest.CheckedInAt = &now
 	if err := DB.Save(&guest).Error; err != nil {
@@ -647,7 +673,7 @@ func APIVerify(c *gin.Context) {
 		"already_checked_in": false,
 		"checked_in_at": formatKuwait(now),
 		"message":            "تم تسجيل الدخول بنجاح ✅",
-	})
+	})*/
 }
 
 func getSettings() InvitationSettings {
@@ -1263,6 +1289,8 @@ r.SetHTMLTemplate(tmpl)
 		managerOnly.PUT("/admin/api/guests/:id", UpdateGuestAdmin)
 	    // اعادة ارسال الباركود
 	    managerOnly.POST("/admin/api/guests/:id/resend-qr", ResendQRHandler)
+        managerOnly.POST("/admin/api/guests/resend-pending-qr", ResendPendingQRHandler)
+
 		managerOnly.POST("/admin/api/broadcast-whatsapp", BroadcastWhatsAppHandler)
 		managerOnly.POST("/admin/api/broadcast-cloud", BroadcastCloudHandler)
 		managerOnly.POST("/admin/api/cloud-test-send", CloudTestSendHandler)

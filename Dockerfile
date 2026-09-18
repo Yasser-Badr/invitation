@@ -1,6 +1,9 @@
 # المرحلة الأولى: بناء المشروع
 FROM golang:1.26-alpine AS builder
 
+# تثبيت أدوات البناء لـ CGO (محتاجة لـ go-sqlite3)
+RUN apk add --no-cache gcc musl-dev
+
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -9,13 +12,13 @@ RUN go mod download
 COPY . .
 RUN mkdir -p public
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o wedding-app .
+# بناء مع تفعيل CGO
+RUN CGO_ENABLED=1 GOOS=linux go build -o wedding-app .
 
 # المرحلة الثانية: التشغيل
 FROM alpine:latest
 
-# تثبيت بيانات التوقيت
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata ca-certificates
 
 WORKDIR /app
 

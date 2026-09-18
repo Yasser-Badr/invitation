@@ -282,6 +282,7 @@
             <button class="btn btn-print" onclick="openLastReport()">📋 آخر تقرير إرسال</button>
             <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف المحددين</button>
             <button class="btn btn-danger" style="background:#c0392b;" onclick="deleteAllGuests()">🗑️ حذف الكل</button>
+            <button type="button" class="btn btn-print" onclick="resendPendingQR()">  🎫 إعادة ارسال باركود للمعلّقين</button>
         </div>
     </div>
     <div class="toolbar-group">
@@ -1200,8 +1201,25 @@ async function resendQR(id, btn) {
     btn.innerText = oldText;
   }
 }
+async function resendPendingQR() {
+  if (!confirm('إعادة إرسال الباركود لكل المؤكدين المعلّقين؟')) return;
+  try {
+    const r = await fetch('/admin/api/guests/resend-pending-qr', { method: 'POST' });
+    const d = await r.json();
+    alert(d.message || 'تم');
+    location.reload();
+  } catch (e) { alert('خطأ اتصال'); }
+}
 // تحديث الصفحة كل 90 ثانية عشان الإحصائيات تفضل حديثة
 //setTimeout(function(){ location.reload(); }, 90000);
+//let broadcastFormOpen = false;
+// عند فتح مودال البث:
+//broadcastFormOpen = true;
+// عند الإغلاق:
+//broadcastFormOpen = false;
+
+// في تایمر التحديث:
+// setInterval(() => { if (!broadcastFormOpen) location.reload(); }, 90000);
 </script>
 
 </body>

@@ -32,18 +32,21 @@ var WAClient *whatsmeow.Client
 var CurrentQRBase64 string
 var qrMutex sync.Mutex
 var isConnecting bool
+var lastQRError string // ← جديد: عشان نعرف ليه فشل
 
 func InitWhatsApp() {
 	dbLog := waLog.Stdout("Database", "WARN", true)
 	container, err := sqlstore.New(context.Background(), "sqlite3", "file:wa_store.db?_foreign_keys=on", dbLog)
 	if err != nil {
 		fmt.Printf("❌ فشل إنشاء قاعدة بيانات الجلسة: %v\n", err)
+		lastQRError = "فشل إنشاء قاعدة بيانات الجلسة: " + err.Error()
 		return
 	}
 
 	deviceStore, err := container.GetFirstDevice(context.Background())
 	if err != nil {
 		fmt.Printf("❌ فشل الحصول على بيانات الجهاز: %v\n", err)
+		lastQRError = "فشل الحصول على بيانات الجهاز: " + err.Error()
 		return
 	}
 
@@ -55,18 +58,24 @@ func InitWhatsApp() {
 		err = WAClient.Connect()
 		if err == nil {
 			fmt.Println("✅ تم الاتصال التلقائي بالواتساب!")
+			lastQRError = ""
 		} else {
 			fmt.Printf("❌ فشل الاتصال التلقائي: %v\n", err)
+			lastQRError = "فشل الاتصال التلقائي: " + err.Error()
 		}
 	} else {
 		fmt.Println("⏳ لم يتم الربط بعد. سيتم توليد QR عند الطلب.")
+		lastQRError = ""
 	}
 }
 
 func StartQRLogin() {
 	qrMutex.Lock()
 	if WAClient == nil {
+		lastQRError = "WAClient غير مهيأ (InitWhatsApp فشل)"
+		isConnecting = false
 		qrMutex.Unlock()
+		fmt.Println("❌", lastQRError)
 		return
 	}
 	if WAClient.IsConnected() && WAClient.Store.ID != nil {
@@ -79,66 +88,106 @@ func StartQRLogin() {
 	}
 	isConnecting = true
 	CurrentQRBase64 = ""
+	lastQRError = ""
 	qrMutex.Unlock()
 
+	// نفصل أي اتصال قديم
 	if WAClient.IsConnected() {
 		WAClient.Disconnect()
-		time.Sleep(600 * time.Millisecond)
+		time.Sleep(800 * time.Millisecond)
 	}
 
 	qrChan, err := WAClient.GetQRChannel(context.Background())
 	if err != nil {
-		fmt.Printf("❌ فشل الحصول على قناة الـ QR: %v\n", err)
+		msg := fmt.Sprintf("فشل الحصول على قناة الـ QR: %v", err)
+		fmt.Println("❌", msg)
 		qrMutex.Lock()
 		isConnecting = false
+		lastQRError = msg
 		qrMutex.Unlock()
 		return
 	}
 
 	err = WAClient.Connect()
 	if err != nil {
-		fmt.Printf("❌ فشل الاتصال بالواتساب: %v\n", err)
+		msg := fmt.Sprintf("فشل الاتصال بالواتساب: %v", err)
+		fmt.Println("❌", msg)
 		qrMutex.Lock()
 		isConnecting = false
+		lastQRError = msg
 		qrMutex.Unlock()
 		return
 	}
 
 	go func() {
-		for evt := range qrChan {
-			fmt.Printf("📱 حدث QR: %s\n", evt.Event)
-			switch evt.Event {
-			case "code":
-				png, err := qrcode.Encode(evt.Code, qrcode.Medium, 256)
-				if err != nil {
-					fmt.Printf("❌ فشل توليد صورة الـ QR: %v\n", err)
-					continue
+		timeout := time.After(90 * time.Second) // مهلة 90 ثانية
+
+		for {
+			select {
+			case evt, ok := <-qrChan:
+				if !ok {
+					qrMutex.Lock()
+					isConnecting = false
+					if CurrentQRBase64 == "" && lastQRError == "" {
+						lastQRError = "قناة الـ QR اتقفلت بدون كود"
+					}
+					qrMutex.Unlock()
+					return
 				}
-				qrMutex.Lock()
-				CurrentQRBase64 = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
-				qrMutex.Unlock()
-				fmt.Println("✅ تم توليد صورة الـ QR بنجاح")
-			case "timeout":
-				qrMutex.Lock()
-				CurrentQRBase64 = ""
-				isConnecting = false
-				qrMutex.Unlock()
-				fmt.Println("⏰ انتهت مهلة الـ QR")
-			case "success":
-				qrMutex.Lock()
-				CurrentQRBase64 = ""
-				isConnecting = false
-				qrMutex.Unlock()
-				fmt.Println("✅ تم الربط بحساب الواتساب بنجاح!")
-			default:
-				if evt.Error != nil {
-					fmt.Printf("⚠️ خطأ في QR: %v\n", evt.Error)
+
+				fmt.Printf("📱 حدث QR: %s\n", evt.Event)
+
+				switch evt.Event {
+				case "code":
+					png, err := qrcode.Encode(evt.Code, qrcode.Medium, 256)
+					if err != nil {
+						fmt.Printf("❌ فشل توليد صورة الـ QR: %v\n", err)
+						continue
+					}
+					qrMutex.Lock()
+					CurrentQRBase64 = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+					lastQRError = ""
+					qrMutex.Unlock()
+					fmt.Println("✅ تم توليد صورة الـ QR بنجاح")
+
+				case "timeout":
+					qrMutex.Lock()
+					CurrentQRBase64 = ""
+					isConnecting = false
+					lastQRError = "انتهت مهلة الـ QR (timeout)"
+					qrMutex.Unlock()
+					fmt.Println("⏰ انتهت مهلة الـ QR")
+					return
+
+				case "success":
+					qrMutex.Lock()
+					CurrentQRBase64 = ""
+					isConnecting = false
+					lastQRError = ""
+					qrMutex.Unlock()
+					fmt.Println("✅ تم الربط بحساب الواتساب بنجاح!")
+					return
+
+				default:
+					if evt.Error != nil {
+						fmt.Printf("⚠️ خطأ في QR: %v\n", evt.Error)
+						qrMutex.Lock()
+						lastQRError = evt.Error.Error()
+						qrMutex.Unlock()
+					}
 				}
+
+			case <-timeout:
+				qrMutex.Lock()
+				if CurrentQRBase64 == "" {
+					lastQRError = "انتهت المهلة الكلية (90 ثانية) بدون استلام كود QR"
+					isConnecting = false
+				}
+				qrMutex.Unlock()
+				fmt.Println("⏰ timeout كلي لتوليد الـ QR")
+				return
 			}
 		}
-		qrMutex.Lock()
-		isConnecting = false
-		qrMutex.Unlock()
 	}()
 }
 
@@ -158,8 +207,10 @@ func WhatsAppStatusHandler(c *gin.Context) {
 	qrMutex.Lock()
 	qr := CurrentQRBase64
 	connecting := isConnecting
+	errMsg := lastQRError
 	qrMutex.Unlock()
 
+	// نحاول توليد الـ QR فقط لو مش متصلين ومفيش محاولة جارية
 	if qr == "" && !connecting {
 		go StartQRLogin()
 	}
@@ -168,6 +219,7 @@ func WhatsAppStatusHandler(c *gin.Context) {
 		"connected": false,
 		"qr":        qr,
 		"cloud_ok":  cloudOK,
+		"error":     errMsg, // ← جديد: الرسالة هتوصل للواجهة
 	})
 }
 

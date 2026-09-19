@@ -632,48 +632,35 @@ func APIVerify(c *gin.Context) {
 			"checked_in":    true,
 			"checked_in_at": now,
 		})
+
 	if res.RowsAffected == 0 {
-		// اتسجل قبل كده
+		// اتسجل قبل كده في نفس اللحظة
 		checkedAt := ""
 		if guest.CheckedInAt != nil {
 			checkedAt = formatKuwait(*guest.CheckedInAt)
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"success": true, "already_checked_in": true,
-			"name": guest.Name, "phone": guest.Phone,
-			"companions": guest.Companions, "checked_in_at": checkedAt,
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true, "already_checked_in": false,
-		"name": guest.Name, "phone": guest.Phone,
-		"companions": guest.Companions,
-		"checked_in_at": formatKuwait(now),
-	})
-	/*now := kuwaitNow()
-	guest.CheckedIn = true
-	guest.CheckedInAt = &now
-	if err := DB.Save(&guest).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success":            false,
-			"error":              "فشل تسجيل الدخول، حاول مرة أخرى",
-			"already_checked_in": false,
+			"success":            true,
+			"already_checked_in": true,
+			"name":               guest.Name,
+			"phone":              guest.Phone,
+			"companions":         guest.Companions,
+			"status":             guest.Status,
+			"checked_in_at":      checkedAt,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":            true,
+		"already_checked_in": false,
 		"name":               guest.Name,
 		"phone":              guest.Phone,
 		"companions":         guest.Companions,
 		"status":             guest.Status,
-		"checked_in":         true,
-		"already_checked_in": false,
-		"checked_in_at": formatKuwait(now),
+		"checked_in_at":      formatKuwait(now),
 		"message":            "تم تسجيل الدخول بنجاح ✅",
-	})*/
+	})
 }
 
 func getSettings() InvitationSettings {

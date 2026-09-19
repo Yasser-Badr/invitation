@@ -33,6 +33,7 @@ var CurrentQRBase64 string
 var qrMutex sync.Mutex
 var isConnecting bool
 var lastQRError string // ← جديد: عشان نعرف ليه فشل
+var CurrentPairingCode string
 
 func InitWhatsApp() {
 	dbLog := waLog.Stdout("Database", "WARN", true)
@@ -88,10 +89,10 @@ func StartQRLogin() {
 	}
 	isConnecting = true
 	CurrentQRBase64 = ""
+	CurrentPairingCode = ""
 	lastQRError = ""
 	qrMutex.Unlock()
 
-	// نفصل أي اتصال قديم
 	if WAClient.IsConnected() {
 		WAClient.Disconnect()
 		time.Sleep(800 * time.Millisecond)
@@ -120,7 +121,7 @@ func StartQRLogin() {
 	}
 
 	go func() {
-		timeout := time.After(90 * time.Second) // مهلة 90 ثانية
+		timeout := time.After(90 * time.Second)
 
 		for {
 			select {
@@ -162,6 +163,7 @@ func StartQRLogin() {
 				case "success":
 					qrMutex.Lock()
 					CurrentQRBase64 = ""
+					CurrentPairingCode = ""
 					isConnecting = false
 					lastQRError = ""
 					qrMutex.Unlock()
@@ -191,6 +193,51 @@ func StartQRLogin() {
 	}()
 }
 
+// ===== الربط برقم الهاتف (Pairing Code) =====
+func RequestPairingCode(phone string) (string, error) {
+	if WAClient == nil {
+		return "", fmt.Errorf("WAClient غير مهيأ")
+	}
+	if WAClient.IsConnected() && WAClient.Store.ID != nil {
+		return "", fmt.Errorf("الحساب مربوط بالفعل")
+	}
+
+	phone = normalizePhone(phone)
+	if len(phone) < 10 {
+		return "", fmt.Errorf("رقم الهاتف غير صالح")
+	}
+
+	// نفصل أي اتصال قديم
+	if WAClient.IsConnected() {
+		WAClient.Disconnect()
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// نتأكد إننا متصلين بالسيرفر
+	if !WAClient.IsConnected() {
+		err := WAClient.Connect()
+		if err != nil {
+			return "", fmt.Errorf("فشل الاتصال: %v", err)
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	code, err := WAClient.PairPhone(phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+	if err != nil {
+		return "", fmt.Errorf("فشل طلب كود الربط: %v", err)
+	}
+
+	qrMutex.Lock()
+	CurrentPairingCode = code
+	CurrentQRBase64 = ""
+	lastQRError = ""
+	isConnecting = true
+	qrMutex.Unlock()
+
+	fmt.Printf("✅ تم توليد كود الربط: %s\n", code)
+	return code, nil
+}
+
 func WhatsAppStatusHandler(c *gin.Context) {
 	cloudOK := cloudToken() != "" && cloudPhoneNumberID() != ""
 
@@ -206,34 +253,22 @@ func WhatsAppStatusHandler(c *gin.Context) {
 
 	qrMutex.Lock()
 	qr := CurrentQRBase64
+	pairingCode := CurrentPairingCode
 	connecting := isConnecting
 	errMsg := lastQRError
 	qrMutex.Unlock()
 
-    // نحاول توليد الـ QR لو مش متصلين
-    // ولو فيه QR قديم ومفيش محاولة جارية → نعيد التوليد كل 25 ثانية
-    if !connecting {
-    	if qr == "" {
-    		go StartQRLogin()
-    	} else {
-    		// لو الـ QR موجود من فترة طويلة → نعيده
-    		go func() {
-    			time.Sleep(25 * time.Second)
-    			qrMutex.Lock()
-    			if CurrentQRBase64 != "" && !isConnecting {
-    				CurrentQRBase64 = ""
-    				lastQRError = ""
-    			}
-    			qrMutex.Unlock()
-    		}()
-    	}
-    }
+	// نحاول توليد الـ QR لو مفيش حاجة شغالة
+	if qr == "" && pairingCode == "" && !connecting {
+		go StartQRLogin()
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"connected": false,
-		"qr":        qr,
-		"cloud_ok":  cloudOK,
-		"error":     errMsg, // ← جديد: الرسالة هتوصل للواجهة
+		"connected":    false,
+		"qr":           qr,
+		"pairing_code": pairingCode,
+		"cloud_ok":     cloudOK,
+		"error":        errMsg,
 	})
 }
 
@@ -1499,5 +1534,24 @@ func ResendPendingQRHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("إعادة إرسال: %d نجح، %d فشل", ok, fail),
 		"success": ok, "fail": fail,
+	})
+}
+
+func RequestPairingCodeHandler(c *gin.Context) {
+	phone := strings.TrimSpace(c.PostForm("phone"))
+	if phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "رقم الهاتف مطلوب"})
+		return
+	}
+
+	code, err := RequestPairingCode(phone)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "تم توليد كود الربط",
+		"code":    code,
 	})
 }

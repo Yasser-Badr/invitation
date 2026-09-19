@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
@@ -36,7 +36,7 @@ var lastQRError string // ← جديد: عشان نعرف ليه فشل
 
 func InitWhatsApp() {
 	dbLog := waLog.Stdout("Database", "WARN", true)
-	container, err := sqlstore.New(context.Background(), "sqlite3", "file:wa_store.db?_foreign_keys=on", dbLog)
+	container, err := sqlstore.New(context.Background(), "sqlite", "file:wa_store.db?_pragma=foreign_keys(1)", dbLog)
 	if err != nil {
 		fmt.Printf("❌ فشل إنشاء قاعدة بيانات الجلسة: %v\n", err)
 		lastQRError = "فشل إنشاء قاعدة بيانات الجلسة: " + err.Error()
@@ -210,10 +210,24 @@ func WhatsAppStatusHandler(c *gin.Context) {
 	errMsg := lastQRError
 	qrMutex.Unlock()
 
-	// نحاول توليد الـ QR فقط لو مش متصلين ومفيش محاولة جارية
-	if qr == "" && !connecting {
-		go StartQRLogin()
-	}
+    // نحاول توليد الـ QR لو مش متصلين
+    // ولو فيه QR قديم ومفيش محاولة جارية → نعيد التوليد كل 25 ثانية
+    if !connecting {
+    	if qr == "" {
+    		go StartQRLogin()
+    	} else {
+    		// لو الـ QR موجود من فترة طويلة → نعيده
+    		go func() {
+    			time.Sleep(25 * time.Second)
+    			qrMutex.Lock()
+    			if CurrentQRBase64 != "" && !isConnecting {
+    				CurrentQRBase64 = ""
+    				lastQRError = ""
+    			}
+    			qrMutex.Unlock()
+    		}()
+    	}
+    }
 
 	c.JSON(http.StatusOK, gin.H{
 		"connected": false,

@@ -497,34 +497,70 @@
 </div>
 
 <!-- WhatsApp whatsmeow Modal -->
+<!-- ===== مودال الواتساب (QR + Pairing Code) ===== -->
 <div id="broadcastModal" class="modal wa-modal">
     <div class="modal-content">
-        <h3 id="broadcastTitle">إدارة إرسال الواتساب (QR)</h3>
-        <div id="qrSection" style="display:none;">
-            <p style="color:#d9534f; font-weight:700; margin:0 0 8px;">⚠️ حساب الواتساب غير متصل</p>
-            <p class="wa-hint">افتح واتساب ← الأجهزة المرتبطة ← امسح الكود</p>
-            <div class="qr-container">
-                <img id="waQRCode" src="" alt="جاري تحميل كود الـ QR...">
-            </div>
-            <button class="btn btn-secondary" style="width:100%; margin-top:8px;" onclick="closeBroadcastModal()">إغلاق</button>
+        <h3 id="broadcastTitle">ربط واتساب / إرسال</h3>
+        
+        <div id="selectedInfo" class="wa-selected-badge" style="display:none;"></div>
+
+        <!-- حالة الاتصال -->
+        <div id="waConnectedBadge" class="wa-connected-badge" style="display:none;">
+            ✅ الواتساب متصل
         </div>
+
+        <!-- قسم الربط -->
+        <div id="qrSection">
+            <div style="display:flex; gap:8px; justify-content:center; margin-bottom:16px;">
+                <button type="button" class="btn btn-accent btn-sm" onclick="showQRMode()">📱 مسح QR</button>
+                <button type="button" class="btn btn-wa btn-sm" onclick="showPairMode()">🔢 ربط برقم الهاتف</button>
+            </div>
+
+            <!-- QR Mode -->
+            <div id="qrMode">
+                <p class="wa-hint">امسح الكود بسرعة من واتساب → الأجهزة المرتبطة</p>
+                <div class="qr-container">
+                    <img id="waQRCode" src="" alt="جاري تحميل QR...">
+                </div>
+            </div>
+
+            <!-- Pairing Code Mode -->
+            <div id="pairMode" style="display:none; text-align:right;">
+                <label>رقم الواتساب (مع كود الدولة)</label>
+                <input type="text" id="pairPhone" placeholder="مثال: 965xxxxxxxx" dir="ltr" style="text-align:left;">
+                <button type="button" class="btn btn-wa" onclick="requestPairingCode()" style="width:100%; margin-bottom:12px;">
+                    🔑 احصل على كود الربط
+                </button>
+                
+                <div id="pairingCodeBox" style="display:none; background:#e8f5e9; border:2px solid #25D366; border-radius:12px; padding:16px; text-align:center; margin-top:10px;">
+                    <div style="font-size:13px; color:#555; margin-bottom:6px;">أدخل الكود ده في واتساب:</div>
+                    <div id="pairingCodeValue" style="font-size:28px; font-weight:700; letter-spacing:3px; color:#128C7E; direction:ltr;"></div>
+                    <div style="font-size:12px; color:#777; margin-top:8px;">
+                        واتساب → الإعدادات → الأجهزة المرتبطة → ربط جهاز → الربط برقم الهاتف
+                    </div>
+                </div>
+            </div>
+
+            <p id="waErrorMsg" style="color:#e74c3c; font-size:13px; margin-top:10px;"></p>
+        </div>
+
+        <!-- قسم الرسالة (لما يكون متصل) -->
         <div id="msgSection" style="display:none;" class="wa-section">
-            <div style="text-align:center;">
-                <span class="wa-connected-badge">✅ whatsmeow متصل وجاهز للإرسال</span>
-                <div id="selectedInfo" class="wa-selected-badge" style="display:none;"></div>
-            </div>
-            <p class="wa-hint" style="text-align:right;" id="broadcastHint">استخدم <b>{name}</b> و <b>{link}</b>.</p>
+            <p id="broadcastHint" class="wa-hint"></p>
             <label>نص الرسالة</label>
-            <textarea id="broadcastMsg" rows="5" placeholder="أهلاً {name}..."></textarea>
-                <label>مرفق (صورة / فيديو / PDF) — اختياري</label>
-                <input type="file" id="broadcastMedia" accept="image/*,video/mp4,video/3gpp,.pdf"> 
-                <div class="modal-actions" style="margin-top:14px;">
-                <button class="btn btn-secondary" onclick="closeBroadcastModal()">إلغاء</button>
-                <button class="btn btn-accent" onclick="sendBroadcast()" id="sendBtn">🚀 إرسال whatsmeow</button>
+            <textarea id="broadcastMsg" rows="4" placeholder="اكتب الرسالة هنا... استخدم {name} و {link}"></textarea>
+            
+            <label>مرفق (اختياري)</label>
+            <input type="file" id="broadcastMedia" accept="image/*,video/*,.pdf">
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeBroadcastModal()">إغلاق</button>
+                <button type="button" class="btn btn-accent" id="sendBtn" onclick="sendBroadcast()">🚀 إرسال whatsmeow</button>
             </div>
-            <div class="wa-divider">
-                <button class="btn btn-danger" style="width:100%;" onclick="logoutWhatsApp()">🔌 فصل الحساب (تغيير الحساب)</button>
-            </div>
+        </div>
+
+        <div class="modal-actions" id="closeOnlyActions" style="margin-top:12px;">
+            <button type="button" class="btn btn-secondary" onclick="closeBroadcastModal()">إغلاق</button>
         </div>
     </div>
 </div>
@@ -728,9 +764,11 @@ function openBroadcastModal(mode) {
     broadcastMode = mode || 'classic';
     updateBroadcastUI();
     document.getElementById('broadcastModal').style.display = 'flex';
+    showQRMode();
     checkWhatsAppStatus();
     qrInterval = setInterval(checkWhatsAppStatus, 3000);
 }
+
 function openBroadcastModalSelected(mode) {
     var checkboxes = document.querySelectorAll('.guest-checkbox:checked');
     if (checkboxes.length === 0) { alert('حدد مدعو واحد على الأقل'); return; }
@@ -738,18 +776,20 @@ function openBroadcastModalSelected(mode) {
     broadcastMode = mode || 'classic';
     updateBroadcastUI();
     document.getElementById('broadcastModal').style.display = 'flex';
+    showQRMode();
     checkWhatsAppStatus();
     qrInterval = setInterval(checkWhatsAppStatus, 3000);
 }
+
 function updateBroadcastUI() {
     var title = document.getElementById('broadcastTitle');
     var hint = document.getElementById('broadcastHint');
     var info = document.getElementById('selectedInfo');
     if (broadcastMode === 'buttons') {
-        title.textContent = 'أزرار واتساب (whatsmeow / QR)';
-        hint.innerHTML = 'أزرار تأكيد / اعتذار عبر whatsmeow. استخدم <b>{name}</b>.';
+        title.textContent = 'أزرار واتساب (whatsmeow)';
+        hint.innerHTML = 'أزرار تأكيد / اعتذار. استخدم <b>{name}</b>.';
     } else {
-        title.textContent = 'رابط الدعوة (whatsmeow / QR)';
+        title.textContent = 'رابط الدعوة (whatsmeow)';
         hint.innerHTML = 'استخدم <b>{name}</b> و <b>{link}</b>.';
     }
     if (broadcastSelectedOnly) {
@@ -759,10 +799,23 @@ function updateBroadcastUI() {
         info.style.display = 'none';
     }
 }
+
 function closeBroadcastModal() {
     document.getElementById('broadcastModal').style.display = 'none';
     if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
 }
+
+function showQRMode() {
+    document.getElementById('qrMode').style.display = 'block';
+    document.getElementById('pairMode').style.display = 'none';
+    document.getElementById('pairingCodeBox').style.display = 'none';
+}
+
+function showPairMode() {
+    document.getElementById('qrMode').style.display = 'none';
+    document.getElementById('pairMode').style.display = 'block';
+}
+
 function checkWhatsAppStatus() {
     fetch('/admin/api/whatsapp-status')
         .then(function (res) { return res.json(); })
@@ -770,13 +823,19 @@ function checkWhatsAppStatus() {
             var qrSection = document.getElementById('qrSection');
             var msgSection = document.getElementById('msgSection');
             var qrImage = document.getElementById('waQRCode');
+            var errorMsg = document.getElementById('waErrorMsg');
+            var connectedBadge = document.getElementById('waConnectedBadge');
+
             if (data.connected) {
                 qrSection.style.display = 'none';
                 msgSection.style.display = 'block';
+                connectedBadge.style.display = 'inline-block';
                 if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
             } else {
                 msgSection.style.display = 'none';
                 qrSection.style.display = 'block';
+                connectedBadge.style.display = 'none';
+
                 if (data.qr) {
                     qrImage.src = data.qr;
                     qrImage.alt = 'امسح هذا الكود';
@@ -784,10 +843,51 @@ function checkWhatsAppStatus() {
                     qrImage.src = '';
                     qrImage.alt = 'جاري تحميل QR...';
                 }
+
+                if (data.pairing_code) {
+                    document.getElementById('pairingCodeValue').textContent = data.pairing_code;
+                    document.getElementById('pairingCodeBox').style.display = 'block';
+                }
+
+                if (data.error) {
+                    errorMsg.textContent = data.error;
+                } else {
+                    errorMsg.textContent = '';
+                }
             }
         })
         .catch(function (err) { console.error(err); });
 }
+
+function requestPairingCode() {
+    var phone = document.getElementById('pairPhone').value.trim();
+    if (!phone) {
+        alert('اكتب رقم الهاتف');
+        return;
+    }
+
+    var formData = new FormData();
+    formData.append('phone', phone);
+
+    fetch('/admin/api/whatsapp-pair', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+        if (data.error) {
+            alert('خطأ: ' + data.error);
+            return;
+        }
+        document.getElementById('pairingCodeValue').textContent = data.code;
+        document.getElementById('pairingCodeBox').style.display = 'block';
+        alert('تم توليد الكود!\nادخله في واتساب خلال دقيقة.');
+    })
+    .catch(function () {
+        alert('خطأ في الاتصال بالسيرفر');
+    });
+}
+
 function sendBroadcast() {
     var msgText = document.getElementById('broadcastMsg').value;
     if (!msgText.trim()) { alert('اكتب نص الرسالة'); return; }
